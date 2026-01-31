@@ -15,10 +15,6 @@ namespace BBRepoList.Presentation;
 /// </summary>
 public sealed class ConsoleApp
 {
-    private readonly IBitbucketApiClient _bitbucketApiClient;
-    private readonly IRepoService _repoService;
-    private readonly BitbucketOptions _options;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
@@ -115,7 +111,7 @@ public sealed class ConsoleApp
                     : ctx.Status("Loaded.");
             });
 
-        var sorted = all.Take(3)
+        var sorted = all
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -137,4 +133,8 @@ public sealed class ConsoleApp
 
         AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
     }
+
+    private readonly IBitbucketApiClient _bitbucketApiClient;
+    private readonly IRepoService _repoService;
+    private readonly BitbucketOptions _options;
 }
