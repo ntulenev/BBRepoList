@@ -11,9 +11,6 @@ namespace BBRepoList.Logic;
 /// </summary>
 public sealed class RepositoryService : IRepoService
 {
-    private readonly IBitbucketApiClient _api;
-    private readonly BitbucketOptions _options;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="RepositoryService"/> class.
     /// </summary>
@@ -72,4 +69,7 @@ public sealed class RepositoryService : IRepoService
 
         return all;
     }
+
+    private readonly IBitbucketApiClient _api;
+    private readonly BitbucketOptions _options;
 }
