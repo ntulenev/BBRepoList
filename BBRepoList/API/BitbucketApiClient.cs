@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Models;
+using BBRepoList.Transport;
 
 namespace BBRepoList.API;
 
@@ -55,8 +56,8 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
         }
 
         var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<RepoPage>(json)
-               ?? new RepoPage([], null);
+        var dto = JsonSerializer.Deserialize<RepoPageDto>(json);
+        return dto is null ? new RepoPage([], null) : dto.ToDomain();
     }
 
     /// <inheritdoc />
@@ -72,8 +73,8 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
         }
 
         var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<BitbucketUser>(json)
-               ?? new BitbucketUser(null, null, null, null);
+        var dto = JsonSerializer.Deserialize<BitbucketUserDto>(json);
+        return dto is null ? new BitbucketUser(null, null, null, null) : dto.ToDomain();
     }
 
     private readonly HttpClient _http;
