@@ -38,5 +38,5 @@ public sealed class BitbucketOptions
     /// Number of repositories per page.
     /// </summary>
     [Range(1, 100)]
-    public int PageLen { get; init; } = 20;
+    public int PageLen { get; init; }
 }
