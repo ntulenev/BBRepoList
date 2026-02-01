@@ -10,7 +10,7 @@ This app is built on the Bitbucket REST API contract documented here:
 https://developer.atlassian.com/cloud/bitbucket/rest/
 ```
 
-## Bitbucket settings (appsettings.json)
+## ⚙️ Bitbucket settings (appsettings.json)
 Example:
 ```json
 {
