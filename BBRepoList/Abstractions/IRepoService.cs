@@ -10,12 +10,12 @@ public interface IRepoService
     /// <summary>
     /// Retrieves repositories with an optional name filter.
     /// </summary>
-    /// <param name="searchPhrase">Substring to match against repository names.</param>
+    /// <param name="filterPattern">Repository name filter pattern.</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Matching repositories.</returns>
     Task<IReadOnlyList<Repository>> GetRepositoriesAsync(
-        string? searchPhrase,
+        FilterPattern filterPattern,
         IProgress<RepoLoadProgress>? progress,
         CancellationToken cancellationToken);
 }
