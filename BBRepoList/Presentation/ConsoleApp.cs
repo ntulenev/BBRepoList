@@ -38,13 +38,13 @@ public sealed class ConsoleApp
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine("[bold cyan]Bitbucket Repository Finder[/]");
+        AnsiConsole.MarkupLine("[bold green]Bitbucket Repository List[/]");
 
         var authOk = true;
 
         await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
+            .Spinner(Spinner.Known.Star)
+            .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Checking authentication...", async _ =>
             {
                 BitbucketUser user;
@@ -89,8 +89,8 @@ public sealed class ConsoleApp
         RepoLoadProgress? lastProgress = null;
 
         await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Parse("cyan"))
+            .Spinner(Spinner.Known.Star)
+            .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Loading repositories...", async ctx =>
             {
                 var progress = new Progress<RepoLoadProgress>(p =>
@@ -106,18 +106,18 @@ public sealed class ConsoleApp
                     : ctx.Status("Loaded.");
             });
 
-        var sorted = all
+        var sorted = all.
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        AnsiConsole.MarkupLine($"\n[bold]Workspace:[/] [cyan]{Markup.Escape(_options.Workspace)}[/]");
+        AnsiConsole.MarkupLine($"\n[bold]Workspace:[/] [green]{Markup.Escape(_options.Workspace)}[/]");
         AnsiConsole.MarkupLine($"[bold]Results:[/] [green]{sorted.Count}[/] (sorted by name)\n");
 
         var table = new Table()
-            .Border(TableBorder.Rounded)
+            .Border(TableBorder.Double)
             .Expand()
-            .AddColumn(new TableColumn("#").Centered())
-            .AddColumn(new TableColumn("Repository name"));
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Repository name[/]"));
 
         for (var i = 0; i < sorted.Count; i++)
         {
