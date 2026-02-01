@@ -40,6 +40,6 @@ public static class BitbucketMappings
     public static BitbucketUser ToDomain(this BitbucketUserDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
-        return new BitbucketUser(new BitbucketId(dto.Uuid), dto.DisplayName);
+        return new BitbucketUser(new BitbucketId(dto.Id), new UserName(dto.DisplayName));
     }
 }
