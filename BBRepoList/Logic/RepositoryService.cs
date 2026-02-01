@@ -21,12 +21,11 @@ public sealed class RepositoryService : IRepoService
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Repository>> GetRepositoriesAsync(
-        string? searchPhrase,
+        FilterPattern filterPattern,
         IProgress<RepoLoadProgress>? progress,
         CancellationToken cancellationToken)
     {
         var all = new List<Repository>();
-        var hasFilter = !string.IsNullOrWhiteSpace(searchPhrase);
 
         var seen = 0;
         var matched = 0;
@@ -35,15 +34,7 @@ public sealed class RepositoryService : IRepoService
         {
             seen++;
 
-            if (hasFilter)
-            {
-                if (repository.Name.Contains(searchPhrase!, StringComparison.OrdinalIgnoreCase))
-                {
-                    all.Add(repository);
-                    matched++;
-                }
-            }
-            else
+            if (filterPattern.Filter(repository))
             {
                 all.Add(repository);
                 matched++;
