@@ -4,7 +4,7 @@
 ## About
 BBRepoList is a lightweight utility for fetching the list of repositories available in your Bitbucket workspace (namespace), with support for filtering repositories by name.
 
-## Bitbucket REST API
+## 🌐 Bitbucket REST API
 This app is built on the Bitbucket REST API contract documented here:
 ```
 https://developer.atlassian.com/cloud/bitbucket/rest/
