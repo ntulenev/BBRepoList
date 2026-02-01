@@ -30,7 +30,7 @@ Example:
 - `AuthApiToken`: Your Bitbucket API token.
 - `PageLen`: Number of repositories to request per page (pagination size).
 
-## Output
+## 📄 Output
 The utility outputs a list of repositories returned by the Bitbucket workspace query.
 
 ![Example output](BBList.png)
