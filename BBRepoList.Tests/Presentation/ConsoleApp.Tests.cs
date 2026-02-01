@@ -78,7 +78,7 @@ public sealed class ConsoleAppTests
         var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .Callback(() => authCalls++)
-            .ReturnsAsync(new BitbucketUser("Jane Doe", "jdoe", "{uuid}", "acc-1"));
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
