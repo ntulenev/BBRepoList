@@ -237,7 +237,7 @@ public sealed class BitbucketApiClientTests
         var baseUri = new Uri("https://example.test/");
         var expectedRequestUri = new Uri(baseUri, "user");
 
-        var dto = new BitbucketUserDto("Jane Doe", "jdoe", "{uuid}", "acc-1");
+        var dto = new BitbucketUserDto("{uuid}", "Jane Doe");
         var json = JsonSerializer.Serialize(dto);
 
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
@@ -265,15 +265,13 @@ public sealed class BitbucketApiClientTests
 
         // Assert
         sendCalls.Should().Be(1);
-        user.DisplayName.Should().Be("Jane Doe");
-        user.Nickname.Should().Be("jdoe");
-        user.Uuid.Should().Be("{uuid}");
-        user.AccountId.Should().Be("acc-1");
+        user.DisplayName.Value.Should().Be("Jane Doe");
+        user.Uuid.Should().Be(new BBRepoList.Models.BitbucketId("{uuid}"));
     }
 
-    [Fact(DisplayName = "AuthSelfCheckAsync returns empty user when response body is null")]
+    [Fact(DisplayName = "AuthSelfCheckAsync throws when response body is null")]
     [Trait("Category", "Unit")]
-    public async Task AuthSelfCheckAsyncWhenResponseBodyIsNullReturnsEmptyUser()
+    public async Task AuthSelfCheckAsyncWhenResponseBodyIsNullThrowsInvalidOperationException()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -302,14 +300,13 @@ public sealed class BitbucketApiClientTests
         var client = new BitbucketApiClient(http);
 
         // Act
-        var user = await client.AuthSelfCheckAsync(cts.Token);
+        Func<Task> act = () => client.AuthSelfCheckAsync(cts.Token);
 
         // Assert
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>();
+
         sendCalls.Should().Be(1);
-        user.DisplayName.Should().BeNull();
-        user.Nickname.Should().BeNull();
-        user.Uuid.Should().BeNull();
-        user.AccountId.Should().BeNull();
     }
 
     [Fact(DisplayName = "AuthSelfCheckAsync throws when response is not successful")]
