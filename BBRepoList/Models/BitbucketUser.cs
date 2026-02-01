@@ -8,51 +8,26 @@ public sealed class BitbucketUser
     /// <summary>
     /// Initializes a new instance of the <see cref="BitbucketUser"/> class.
     /// </summary>
-    /// <param name="displayName">User display name.</param>
-    /// <param name="nickname">User nickname.</param>
     /// <param name="uuid">User UUID.</param>
-    /// <param name="accountId">User account identifier.</param>
-    public BitbucketUser(string? displayName, string? nickname, string? uuid, string? accountId)
+    /// <param name="displayName">User display name.</param>
+    public BitbucketUser(BitbucketId uuid, string? displayName)
     {
-        DisplayName = NormalizeOrThrow(displayName, nameof(displayName));
-        Nickname = NormalizeOrThrow(nickname, nameof(nickname));
-        Uuid = NormalizeOrThrow(uuid, nameof(uuid));
-        AccountId = NormalizeOrThrow(accountId, nameof(accountId));
+        Uuid = uuid;
+        DisplayName = displayName ?? NOTAVAILABLE;
     }
 
     /// <summary>
     /// User display name.
     /// </summary>
-    public string? DisplayName { get; }
-
-    /// <summary>
-    /// User nickname.
-    /// </summary>
-    public string? Nickname { get; }
+    public string DisplayName { get; }
 
     /// <summary>
     /// User UUID.
     /// </summary>
-    public string? Uuid { get; }
+    public BitbucketId Uuid { get; }
 
     /// <summary>
-    /// User account identifier.
+    /// 
     /// </summary>
-    public string? AccountId { get; }
-
-    private static string? NormalizeOrThrow(string? value, string paramName)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        var trimmed = value.Trim();
-        if (trimmed.Length == 0)
-        {
-            throw new ArgumentException("Value cannot be empty or whitespace.", paramName);
-        }
-
-        return trimmed;
-    }
+    private const string NOTAVAILABLE = "<N/A>";
 }

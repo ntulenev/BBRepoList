@@ -74,7 +74,12 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
 
         var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         var dto = JsonSerializer.Deserialize<BitbucketUserDto>(json);
-        return dto is null ? new BitbucketUser(null, null, null, null) : dto.ToDomain();
+        if (dto is null)
+        {
+            throw new InvalidOperationException("Bitbucket user response is empty.");
+        }
+
+        return dto.ToDomain();
     }
 
     private readonly HttpClient _http;

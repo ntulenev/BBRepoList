@@ -59,19 +59,11 @@ public sealed class ConsoleApp
                     return;
                 }
 
-                var displayName = user.DisplayName ?? user.Nickname;
-                var accountId = user.AccountId;
-                var uuid = user.Uuid;
+                var displayName = user.DisplayName;
+                var uuid = user.Uuid.ToString();
 
-                if (displayName is null && accountId is null && uuid is null)
-                {
-                    AnsiConsole.MarkupLine("[red]Auth failed:[/] user profile is unavailable.");
-                    authOk = false;
-                    return;
-                }
-
-                AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName ?? "Unknown")}[/]");
-                AnsiConsole.MarkupLine($"[grey]AccountId:[/] {Markup.Escape(accountId ?? "n/a")}  [grey]UUID:[/] {Markup.Escape(uuid ?? "n/a")}\n");
+                AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName)}[/]");
+                AnsiConsole.MarkupLine($"[grey]UUID:[/] {Markup.Escape(uuid)}\n");
             });
 
         if (!authOk)
