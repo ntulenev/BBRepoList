@@ -31,9 +31,6 @@ Example:
 - `PageLen`: Number of repositories to request per page (pagination size).
 
 ## Output
-The utility outputs a list of repositories returned by the Bitbucket workspace query. Depending on configuration, the output can be:
-- Printed to the console for quick inspection.
-- Written to a file for reuse in scripts or reports.
+The utility outputs a list of repositories returned by the Bitbucket workspace query.
 
-Example output:
 ![Example output](BBList.png)
