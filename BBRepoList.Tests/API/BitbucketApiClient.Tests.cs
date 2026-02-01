@@ -8,7 +8,11 @@ using Moq;
 using Moq.Protected;
 
 using BBRepoList.API;
+using BBRepoList.Configuration;
+using BBRepoList.Models;
 using BBRepoList.Transport;
+
+using Microsoft.Extensions.Options;
 
 namespace BBRepoList.Tests.API;
 
@@ -20,9 +24,26 @@ public sealed class BitbucketApiClientTests
     {
         // Arrange
         HttpClient http = null!;
+        var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketApiClient(http);
+        Action act = () => _ = new BitbucketApiClient(http, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when options are null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenOptionsAreNullThrowsArgumentNullException()
+    {
+        // Arrange
+        using var http = new HttpClient();
+        IOptions<BitbucketOptions> options = null!;
+
+        // Act
+        Action act = () => _ = new BitbucketApiClient(http, options);
 
         // Assert
         act.Should()
@@ -79,43 +100,34 @@ public sealed class BitbucketApiClientTests
         header.Parameter.Should().Be(expected);
     }
 
-    [Fact(DisplayName = "GetRepositoriesPageAsync throws when url is null")]
+    [Fact(DisplayName = "GetRepositoriesAsync returns mapped repositories when response is valid")]
     [Trait("Category", "Unit")]
-    public async Task GetRepositoriesPageAsyncWhenUrlIsNullThrowsArgumentNullException()
-    {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-        using var http = new HttpClient();
-        var client = new BitbucketApiClient(http);
-        Uri url = null!;
-
-        // Act
-        Func<Task> act = () => client.GetRepositoriesPageAsync(url, cts.Token);
-
-        // Assert
-        await act.Should()
-            .ThrowAsync<ArgumentNullException>();
-    }
-
-    [Fact(DisplayName = "GetRepositoriesPageAsync returns mapped page when response is valid")]
-    [Trait("Category", "Unit")]
-    public async Task GetRepositoriesPageAsyncWhenResponseIsValidReturnsPage()
+    public async Task GetRepositoriesAsyncWhenResponseIsValidReturnsRepositories()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var baseUri = new Uri("https://example.test/");
-        var requestUrl = new Uri("repositories/workspace?pagelen=25", UriKind.Relative);
-        var expectedRequestUri = new Uri(baseUri, requestUrl);
+        var firstUrl = new Uri(baseUri, "repositories/workspace?pagelen=25");
+        var nextUrl = new Uri(baseUri, "next");
 
-        var dto = new RepoPageDto(
-            [new RepositoryDto("Repo-1")],
+        var firstDto = new RepoPageDto(
+            [new RepositoryDto("Repo-1"), new RepositoryDto("Repo-2")],
             new Uri("next", UriKind.Relative));
-        var json = JsonSerializer.Serialize(dto);
+        var firstJson = JsonSerializer.Serialize(firstDto);
 
-        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        var secondDto = new RepoPageDto(
+            [new RepositoryDto("Repo-3")],
+            null);
+        var secondJson = JsonSerializer.Serialize(secondDto);
+
+        using var firstResponse = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
+            Content = new StringContent(firstJson, Encoding.UTF8, "application/json")
+        };
+        using var secondResponse = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(secondJson, Encoding.UTF8, "application/json")
         };
 
         var handler = new Mock<HttpMessageHandler>(MockBehavior.Strict);
@@ -125,34 +137,44 @@ public sealed class BitbucketApiClientTests
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Get && req.RequestUri == expectedRequestUri),
+                    req.Method == HttpMethod.Get && req.RequestUri == firstUrl),
                 ItExpr.IsAny<CancellationToken>())
             .Callback(() => sendCalls++)
-            .ReturnsAsync(response);
+            .ReturnsAsync(firstResponse);
+        handler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(req =>
+                    req.Method == HttpMethod.Get && req.RequestUri == nextUrl),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(secondResponse);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
-
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
         // Act
-        var page = await client.GetRepositoriesPageAsync(requestUrl, cts.Token);
+        var repositories = new List<Repository>();
+        await foreach (var repository in client.GetRepositoriesAsync(cts.Token))
+        {
+            repositories.Add(repository);
+        }
 
         // Assert
-        sendCalls.Should().Be(1);
-        page.Values.Should().HaveCount(1);
-        page.Values[0].Name.Should().Be("Repo-1");
-        page.Next.Should().Be(new Uri("next", UriKind.Relative));
+        sendCalls.Should().Be(2);
+        repositories.Should().HaveCount(3);
+        repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2", "Repo-3");
     }
 
-    [Fact(DisplayName = "GetRepositoriesPageAsync returns empty page when response body is null")]
+    [Fact(DisplayName = "GetRepositoriesAsync returns empty sequence when response body is null")]
     [Trait("Category", "Unit")]
-    public async Task GetRepositoriesPageAsyncWhenResponseBodyIsNullReturnsEmptyPage()
+    public async Task GetRepositoriesAsyncWhenResponseBodyIsNullReturnsEmptySequence()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var baseUri = new Uri("https://example.test/");
-        var requestUrl = new Uri("repositories/workspace?pagelen=25", UriKind.Relative);
-        var expectedRequestUri = new Uri(baseUri, requestUrl);
+        var requestUrl = new Uri(baseUri, "repositories/workspace?pagelen=25");
 
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -166,34 +188,35 @@ public sealed class BitbucketApiClientTests
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Get && req.RequestUri == expectedRequestUri),
+                    req.Method == HttpMethod.Get && req.RequestUri == requestUrl),
                 ItExpr.IsAny<CancellationToken>())
             .Callback(() => sendCalls++)
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
 
         // Act
-        var page = await client.GetRepositoriesPageAsync(requestUrl, cts.Token);
+        var repositories = new List<Repository>();
+        await foreach (var repository in client.GetRepositoriesAsync(cts.Token))
+        {
+            repositories.Add(repository);
+        }
 
         // Assert
         sendCalls.Should().Be(1);
-        page.Values.Should().NotBeNull();
-        page.Values.Should().BeEmpty();
-        page.Next.Should().BeNull();
+        repositories.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "GetRepositoriesPageAsync throws when response is not successful")]
+    [Fact(DisplayName = "GetRepositoriesAsync throws when response is not successful")]
     [Trait("Category", "Unit")]
-    public async Task GetRepositoriesPageAsyncWhenResponseIsFailureThrowsHttpRequestException()
+    public async Task GetRepositoriesAsyncWhenResponseIsFailureThrowsHttpRequestException()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var baseUri = new Uri("https://example.test/");
-        var requestUrl = new Uri("repositories/workspace?pagelen=25", UriKind.Relative);
-        var expectedRequestUri = new Uri(baseUri, requestUrl);
+        var requestUrl = new Uri(baseUri, "repositories/workspace?pagelen=25");
         var body = "error body";
 
         using var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
@@ -209,16 +232,21 @@ public sealed class BitbucketApiClientTests
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Method == HttpMethod.Get && req.RequestUri == expectedRequestUri),
+                    req.Method == HttpMethod.Get && req.RequestUri == requestUrl),
                 ItExpr.IsAny<CancellationToken>())
             .Callback(() => sendCalls++)
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
 
         // Act
-        Func<Task> act = () => client.GetRepositoriesPageAsync(requestUrl, cts.Token);
+        Func<Task> act = async () =>
+        {
+            await foreach (var _ in client.GetRepositoriesAsync(cts.Token))
+            {
+            }
+        };
 
         // Assert
         await act.Should()
@@ -258,7 +286,7 @@ public sealed class BitbucketApiClientTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
 
         // Act
         var user = await client.AuthSelfCheckAsync(cts.Token);
@@ -266,7 +294,7 @@ public sealed class BitbucketApiClientTests
         // Assert
         sendCalls.Should().Be(1);
         user.DisplayName.Value.Should().Be("Jane Doe");
-        user.Uuid.Should().Be(new BBRepoList.Models.BitbucketId("{uuid}"));
+        user.Uuid.Should().Be(new BitbucketId("{uuid}"));
     }
 
     [Fact(DisplayName = "AuthSelfCheckAsync throws when response body is null")]
@@ -297,7 +325,7 @@ public sealed class BitbucketApiClientTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
 
         // Act
         Func<Task> act = () => client.AuthSelfCheckAsync(cts.Token);
@@ -339,7 +367,7 @@ public sealed class BitbucketApiClientTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var client = new BitbucketApiClient(http);
+        var client = new BitbucketApiClient(http, Options.Create(CreateOptions()));
 
         // Act
         Func<Task> act = () => client.AuthSelfCheckAsync(cts.Token);
@@ -349,5 +377,17 @@ public sealed class BitbucketApiClientTests
             .ThrowAsync<HttpRequestException>();
 
         sendCalls.Should().Be(1);
+    }
+
+    private static BitbucketOptions CreateOptions()
+    {
+        return new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://example.test/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25
+        };
     }
 }

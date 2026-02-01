@@ -1,8 +1,5 @@
 using BBRepoList.Abstractions;
-using BBRepoList.Configuration;
 using BBRepoList.Models;
-
-using Microsoft.Extensions.Options;
 
 namespace BBRepoList.Logic;
 
@@ -15,14 +12,11 @@ public sealed class RepositoryService : IRepoService
     /// Initializes a new instance of the <see cref="RepositoryService"/> class.
     /// </summary>
     /// <param name="api">Bitbucket API client.</param>
-    /// <param name="options">Bitbucket configuration options.</param>
-    public RepositoryService(IBitbucketApiClient api, IOptions<BitbucketOptions> options)
+    public RepositoryService(IBitbucketApiClient api)
     {
         ArgumentNullException.ThrowIfNull(api);
-        ArgumentNullException.ThrowIfNull(options);
 
         _api = api;
-        _options = options.Value;
     }
 
     /// <inheritdoc />
@@ -33,43 +27,33 @@ public sealed class RepositoryService : IRepoService
     {
         var all = new List<Repository>();
         var hasFilter = !string.IsNullOrWhiteSpace(searchPhrase);
-        var url = new Uri($"repositories/{_options.Workspace}?pagelen={_options.PageLen}", UriKind.Relative);
 
-        var pages = 0;
         var seen = 0;
         var matched = 0;
 
-        while (url is not null)
+        await foreach (var repository in _api.GetRepositoriesAsync(cancellationToken).ConfigureAwait(false))
         {
-            pages++;
-
-            var page = await _api.GetRepositoriesPageAsync(url, cancellationToken).ConfigureAwait(false);
-            seen += page.Values.Count;
+            seen++;
 
             if (hasFilter)
             {
-                foreach (var r in page.Values)
+                if (repository.Name.Contains(searchPhrase!, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (r.Name.Contains(searchPhrase!, StringComparison.OrdinalIgnoreCase))
-                    {
-                        all.Add(r);
-                        matched++;
-                    }
+                    all.Add(repository);
+                    matched++;
                 }
             }
             else
             {
-                all.AddRange(page.Values);
-                matched = all.Count;
+                all.Add(repository);
+                matched++;
             }
 
-            progress?.Report(new RepoLoadProgress(pages, seen, matched));
-            url = page.Next;
+            progress?.Report(new RepoLoadProgress(seen, matched));
         }
 
         return all;
     }
 
     private readonly IBitbucketApiClient _api;
-    private readonly BitbucketOptions _options;
 }

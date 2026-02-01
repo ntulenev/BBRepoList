@@ -8,12 +8,11 @@ namespace BBRepoList.Abstractions;
 public interface IBitbucketApiClient
 {
     /// <summary>
-    /// Loads a repository page from the specified URL.
+    /// Streams repositories for the configured Bitbucket workspace.
     /// </summary>
-    /// <param name="url">Absolute Bitbucket API URL for the repositories page.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Repository page response.</returns>
-    Task<RepoPage> GetRepositoriesPageAsync(Uri url, CancellationToken cancellationToken);
+    /// <returns>Repositories stream.</returns>
+    IAsyncEnumerable<Repository> GetRepositoriesAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Retrieves the authenticated user profile for the current credentials.

@@ -88,7 +88,7 @@ public sealed class ConsoleAppTests
             .Callback<string?, IProgress<RepoLoadProgress>?, CancellationToken>((_, progress, __) =>
             {
                 repoCalls++;
-                progress?.Report(new RepoLoadProgress(1, 2, 2));
+                progress?.Report(new RepoLoadProgress(2, 2));
             })
             .ReturnsAsync(
             [

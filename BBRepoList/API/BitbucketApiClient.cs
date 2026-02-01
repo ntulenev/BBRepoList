@@ -1,10 +1,14 @@
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
 using BBRepoList.Abstractions;
+using BBRepoList.Configuration;
 using BBRepoList.Models;
 using BBRepoList.Transport;
+
+using Microsoft.Extensions.Options;
 
 namespace BBRepoList.API;
 
@@ -17,11 +21,14 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
     /// Initializes a new instance of the <see cref="BitbucketApiClient"/> class.
     /// </summary>
     /// <param name="http">HTTP client instance.</param>
-    public BitbucketApiClient(HttpClient http)
+    /// <param name="options">Bitbucket configuration options.</param>
+    public BitbucketApiClient(HttpClient http, IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(options);
 
         _http = http;
+        _options = options.Value;
     }
 
     /// <summary>
@@ -42,22 +49,23 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
     }
 
     /// <inheritdoc />
-    public async Task<RepoPage> GetRepositoriesPageAsync(Uri url, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<Repository> GetRepositoriesAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(url);
+        var url = new Uri($"repositories/{_options.Workspace}?pagelen={_options.PageLen}", UriKind.Relative);
 
-        using var resp = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
-
-        if (!resp.IsSuccessStatusCode)
+        while (url is not null)
         {
-            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            throw new HttpRequestException(
-                $"Bitbucket API error {(int)resp.StatusCode} {resp.ReasonPhrase}. Url={url}. Body={body}");
-        }
+            var page = await GetRepositoriesPageAsync(url, cancellationToken).ConfigureAwait(false);
 
-        var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        var dto = JsonSerializer.Deserialize<RepoPageDto>(json);
-        return dto is null ? new RepoPage([], null) : dto.ToDomain();
+            foreach (var repository in page.Values)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return repository;
+            }
+
+            url = page.Next;
+        }
     }
 
     /// <inheritdoc />
@@ -74,13 +82,25 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
 
         var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         var dto = JsonSerializer.Deserialize<BitbucketUserDto>(json);
-        if (dto is null)
+        return dto is null ? throw new InvalidOperationException("Bitbucket user response is empty.") : dto.ToDomain();
+    }
+
+    private async Task<RepoPage> GetRepositoriesPageAsync(Uri url, CancellationToken cancellationToken)
+    {
+        using var resp = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+
+        if (!resp.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException("Bitbucket user response is empty.");
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new HttpRequestException(
+                $"Bitbucket API error {(int)resp.StatusCode} {resp.ReasonPhrase}. Url={url}. Body={body}");
         }
 
-        return dto.ToDomain();
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var dto = JsonSerializer.Deserialize<RepoPageDto>(json);
+        return dto is null ? new RepoPage([], null) : dto.ToDomain();
     }
 
     private readonly HttpClient _http;
+    private readonly BitbucketOptions _options;
 }
