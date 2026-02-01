@@ -96,13 +96,13 @@ public sealed class ConsoleApp
                 var progress = new Progress<RepoLoadProgress>(p =>
                 {
                     lastProgress = p;
-                    _ = ctx.Status($"Loading... pages: {p.Pages}, seen: {p.Seen}, matched: {p.Matched}");
+                    _ = ctx.Status($"Loading... seen: {p.Seen}, matched: {p.Matched}");
                 });
 
                 all = await _repoService.GetRepositoriesAsync(searchPhrase, progress, cancellationToken);
 
                 _ = lastProgress is not null
-                    ? ctx.Status($"Loaded. pages: {lastProgress.Pages}, seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
+                    ? ctx.Status($"Loaded. seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
                     : ctx.Status("Loaded.");
             });
 
