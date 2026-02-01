@@ -82,10 +82,10 @@ public sealed class ConsoleAppTests
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
-                "Repo",
+                new FilterPattern("Repo"),
                 It.IsAny<IProgress<RepoLoadProgress>>(),
                 cts.Token))
-            .Callback<string?, IProgress<RepoLoadProgress>?, CancellationToken>((_, progress, __) =>
+            .Callback<FilterPattern, IProgress<RepoLoadProgress>?, CancellationToken>((_, progress, __) =>
             {
                 repoCalls++;
                 progress?.Report(new RepoLoadProgress(2, 2));
