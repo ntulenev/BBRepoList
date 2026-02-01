@@ -53,7 +53,7 @@ public sealed class RepositoryServiceTests
         var service = new RepositoryService(api.Object);
 
         // Act
-        var repositories = await service.GetRepositoriesAsync(null, progress, cts.Token);
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
 
         // Assert
         repositories.Should().HaveCount(3);
@@ -101,7 +101,7 @@ public sealed class RepositoryServiceTests
         var service = new RepositoryService(api.Object);
 
         // Act
-        var repositories = await service.GetRepositoriesAsync("app", progress, cts.Token);
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern("app"), progress, cts.Token);
 
         // Assert
         repositories.Should().HaveCount(2);
@@ -144,7 +144,7 @@ public sealed class RepositoryServiceTests
         var service = new RepositoryService(api.Object);
 
         // Act
-        var repositories = await service.GetRepositoriesAsync("XXX", progress, cts.Token);
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern("XXX"), progress, cts.Token);
 
         // Assert
         repositories.Should().HaveCount(0);
