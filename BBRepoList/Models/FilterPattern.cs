@@ -18,12 +18,12 @@ public readonly record struct FilterPattern(string? Phrase)
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        return Phrase is null
-            || repository.Name.Contains(Phrase, StringComparison.OrdinalIgnoreCase);
+        return !HasFilter
+            || repository.Name.Contains(Phrase!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Checks whether this filter pattern has a filter phrase.
     /// </summary>
-    public bool HasFilter => string.IsNullOrWhiteSpace(Phrase);
+    public bool HasFilter => !string.IsNullOrWhiteSpace(Phrase);
 }
