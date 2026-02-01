@@ -6,9 +6,9 @@ namespace BBRepoList.Models;
 public readonly record struct BitbucketId
 {
     /// <summary>
-    /// 
+    /// Initializes a new instance of the <see cref="BitbucketId"/> struct.
     /// </summary>
-    /// <param name="value"></param>
+    /// <param name="value">Bitbucket identifier value.</param>
     public BitbucketId(string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
@@ -16,7 +16,7 @@ public readonly record struct BitbucketId
     }
 
     /// <summary>
-    /// 
+    /// Bitbucket identifier value.
     /// </summary>
     public string Value { get; }
 
