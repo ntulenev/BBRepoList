@@ -64,7 +64,7 @@ public sealed class ConsoleApp
 
                 AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName)}[/]");
                 AnsiConsole.MarkupLine($"[grey]UUID:[/] {Markup.Escape(uuid)}\n");
-            });
+            }).ConfigureAwait(false);
 
         if (!authOk)
         {
@@ -99,12 +99,12 @@ public sealed class ConsoleApp
                     _ = ctx.Status($"Loading... seen: {p.Seen}, matched: {p.Matched}");
                 });
 
-                all = await _repoService.GetRepositoriesAsync(searchPhrase, progress, cancellationToken);
+                all = await _repoService.GetRepositoriesAsync(searchPhrase, progress, cancellationToken).ConfigureAwait(false);
 
                 _ = lastProgress is not null
                     ? ctx.Status($"Loaded. seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
                     : ctx.Status("Loaded.");
-            });
+            }).ConfigureAwait(false);
 
         var sorted = all
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
