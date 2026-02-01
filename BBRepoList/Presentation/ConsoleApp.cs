@@ -77,10 +77,10 @@ public sealed class ConsoleApp
             new TextPrompt<string>("Search phrase:").AllowEmpty(),
             cancellationToken).ConfigureAwait(false) ?? string.Empty).Trim();
 
-        var hasFilter = !string.IsNullOrWhiteSpace(searchPhrase);
+        var filterPattern = new FilterPattern(searchPhrase);
 
         AnsiConsole.MarkupLine(
-            hasFilter
+            filterPattern.HasFilter
                 ? $"[grey]Filter:[/] contains [yellow]\"{Markup.Escape(searchPhrase)}\"[/]\n"
                 : "[grey]Filter:[/] (none) — showing all repositories\n"
         );
@@ -99,7 +99,7 @@ public sealed class ConsoleApp
                     _ = ctx.Status($"Loading... seen: {p.Seen}, matched: {p.Matched}");
                 });
 
-                all = await _repoService.GetRepositoriesAsync(searchPhrase, progress, cancellationToken).ConfigureAwait(false);
+                all = await _repoService.GetRepositoriesAsync(filterPattern, progress, cancellationToken).ConfigureAwait(false);
 
                 _ = lastProgress is not null
                     ? ctx.Status($"Loaded. seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
