@@ -81,7 +81,10 @@ public sealed class ConsoleApp
 
         AnsiConsole.MarkupLine("[grey]Search by repository name (Contains, case-insensitive). Empty = all.[/]\n");
 
-        var searchPhrase = (await AnsiConsole.AskAsync<string>("Search phrase:", cancellationToken).ConfigureAwait(false) ?? "").Trim();
+        var searchPhrase = (await AnsiConsole.PromptAsync(
+            new TextPrompt<string>("Search phrase:").AllowEmpty(),
+            cancellationToken).ConfigureAwait(false) ?? string.Empty).Trim();
+
         var hasFilter = !string.IsNullOrWhiteSpace(searchPhrase);
 
         AnsiConsole.MarkupLine(
