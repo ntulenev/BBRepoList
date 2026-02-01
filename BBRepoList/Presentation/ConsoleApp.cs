@@ -106,7 +106,7 @@ public sealed class ConsoleApp
                     : ctx.Status("Loaded.");
             });
 
-        var sorted = all.
+        var sorted = all
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
