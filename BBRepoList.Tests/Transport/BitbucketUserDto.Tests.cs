@@ -14,18 +14,14 @@ public sealed class BitbucketUserDtoTests
     {
         // Arrange
         var displayName = "Jane Doe";
-        var nickname = "jdoe";
-        var uuid = "{uuid}";
-        var accountId = "acc-1";
+        var id = "{uuid}";
 
         // Act
-        var dto = new BitbucketUserDto(displayName, nickname, uuid, accountId);
+        var dto = new BitbucketUserDto(id, displayName);
 
         // Assert
         dto.DisplayName.Should().Be(displayName);
-        dto.Nickname.Should().Be(nickname);
-        dto.Uuid.Should().Be(uuid);
-        dto.AccountId.Should().Be(accountId);
+        dto.Id.Should().Be(id);
     }
 
     [Fact(DisplayName = "BitbucketUserDto serializes properties as expected")]
@@ -33,15 +29,13 @@ public sealed class BitbucketUserDtoTests
     public void SerializeWhenValuesAreSetUsesExpectedJsonProperties()
     {
         // Arrange
-        var dto = new BitbucketUserDto("Jane Doe", "jdoe", "{uuid}", "acc-1");
+        var dto = new BitbucketUserDto("{uuid}", "Jane Doe");
 
         // Act
         var json = JsonSerializer.Serialize(dto);
 
         // Assert
-        json.Should().Contain("\"display_name\":\"Jane Doe\"");
-        json.Should().Contain("\"nickname\":\"jdoe\"");
         json.Should().Contain("\"uuid\":\"{uuid}\"");
-        json.Should().Contain("\"account_id\":\"acc-1\"");
+        json.Should().Contain("\"display_name\":\"Jane Doe\"");
     }
 }
