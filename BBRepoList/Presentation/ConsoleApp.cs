@@ -59,7 +59,7 @@ public sealed class ConsoleApp
                     return;
                 }
 
-                var displayName = user.DisplayName;
+                var displayName = user.DisplayName.Value;
                 var uuid = user.Uuid.ToString();
 
                 AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName)}[/]");
