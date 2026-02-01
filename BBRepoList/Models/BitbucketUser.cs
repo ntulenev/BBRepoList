@@ -10,24 +10,20 @@ public sealed class BitbucketUser
     /// </summary>
     /// <param name="uuid">User UUID.</param>
     /// <param name="displayName">User display name.</param>
-    public BitbucketUser(BitbucketId uuid, string? displayName)
+    public BitbucketUser(BitbucketId uuid, UserName displayName)
     {
         Uuid = uuid;
-        DisplayName = displayName ?? NOTAVAILABLE;
+        DisplayName = displayName;
     }
 
     /// <summary>
     /// User display name.
     /// </summary>
-    public string DisplayName { get; }
+    public UserName DisplayName { get; }
 
     /// <summary>
     /// User UUID.
     /// </summary>
     public BitbucketId Uuid { get; }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    private const string NOTAVAILABLE = "<N/A>";
 }
