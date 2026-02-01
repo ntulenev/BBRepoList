@@ -142,15 +142,13 @@ public sealed class BitbucketMappingsTests
     public void ToDomainWhenUserDtoIsValidCreatesBitbucketUser()
     {
         // Arrange
-        var dto = new BitbucketUserDto("Jane Doe", "jdoe", "{uuid}", "acc-1");
+        var dto = new BitbucketUserDto("{uuid}", "Jane Doe");
 
         // Act
         var user = dto.ToDomain();
 
         // Assert
-        user.DisplayName.Should().Be("Jane Doe");
-        user.Nickname.Should().Be("jdoe");
-        user.Uuid.Should().Be("{uuid}");
-        user.AccountId.Should().Be("acc-1");
+        user.DisplayName.Value.Should().Be("Jane Doe");
+        user.Uuid.Should().Be(new BitbucketId("{uuid}"));
     }
 }
