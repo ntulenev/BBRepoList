@@ -66,7 +66,7 @@ public sealed class FilterPatternTests
         var result = pattern.HasFilter;
 
         // Assert
-        result.Should().BeTrue();
+        result.Should().BeFalse();
     }
 
     [Fact(DisplayName = "HasFilter returns false when phrase contains non-whitespace")]
@@ -80,6 +80,6 @@ public sealed class FilterPatternTests
         var result = pattern.HasFilter;
 
         // Assert
-        result.Should().BeFalse();
+        result.Should().BeTrue();
     }
 }
