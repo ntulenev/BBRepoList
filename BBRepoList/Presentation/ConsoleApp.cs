@@ -38,8 +38,34 @@ public sealed class ConsoleApp
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine("[bold green]Bitbucket Repository List[/]");
+        ShowTitle();
 
+        if (!await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var filterPattern = await ReadFilterPatternAsync(cancellationToken).ConfigureAwait(false);
+        ShowFilterInfo(filterPattern);
+
+        var repositories = await LoadRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false);
+        var sortedRepositories = SortRepositoriesByName(repositories);
+
+        ShowResultsHeader(sortedRepositories.Count);
+        RenderRepositoriesTable(sortedRepositories);
+        ShowDone();
+    }
+
+    private readonly IBitbucketApiClient _bitbucketApiClient;
+    private readonly IRepoService _repoService;
+    private readonly BitbucketOptions _options;
+
+    private static void ShowTitle() => AnsiConsole.MarkupLine("[bold green]Bitbucket Repository List[/]");
+
+    private static void ShowDone() => AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
+
+    private async Task<bool> TryAuthenticateAsync(CancellationToken cancellationToken)
+    {
         var authOk = true;
 
         await AnsiConsole.Status()
@@ -47,45 +73,53 @@ public sealed class ConsoleApp
             .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Checking authentication...", async _ =>
             {
-                BitbucketUser user;
                 try
                 {
-                    user = await _bitbucketApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
+                    var user = await _bitbucketApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
+                    ShowAuthenticatedUser(user);
                 }
                 catch (HttpRequestException ex)
                 {
                     AnsiConsole.MarkupLine($"[red]Auth failed:[/] {Markup.Escape(ex.Message)}");
                     authOk = false;
-                    return;
                 }
-
-                var displayName = user.DisplayName.Value;
-                var uuid = user.Uuid.ToString();
-
-                AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName)}[/]");
-                AnsiConsole.MarkupLine($"[grey]UUID:[/] {Markup.Escape(uuid)}\n");
             }).ConfigureAwait(false);
 
-        if (!authOk)
-        {
-            return;
-        }
+        return authOk;
+    }
 
+    private static void ShowAuthenticatedUser(BitbucketUser user)
+    {
+        var displayName = user.DisplayName.Value;
+        var uuid = user.Uuid.ToString();
+
+        AnsiConsole.MarkupLine($"[green]Auth OK[/] as [bold]{Markup.Escape(displayName)}[/]");
+        AnsiConsole.MarkupLine($"[grey]UUID:[/] {Markup.Escape(uuid)}\n");
+    }
+
+    private static async Task<FilterPattern> ReadFilterPatternAsync(CancellationToken cancellationToken)
+    {
         AnsiConsole.MarkupLine("[grey]Search by repository name (Contains, case-insensitive). Empty = all.[/]\n");
 
         var searchPhrase = (await AnsiConsole.PromptAsync(
             new TextPrompt<string>("Search phrase:").AllowEmpty(),
             cancellationToken).ConfigureAwait(false) ?? string.Empty).Trim();
 
-        var filterPattern = new FilterPattern(searchPhrase);
+        return new FilterPattern(searchPhrase);
+    }
 
+    private static void ShowFilterInfo(FilterPattern filterPattern)
+    {
         AnsiConsole.MarkupLine(
             filterPattern.HasFilter
-                ? $"[grey]Filter:[/] contains [yellow]\"{Markup.Escape(searchPhrase)}\"[/]\n"
-                : "[grey]Filter:[/] (none) — showing all repositories\n"
+                ? $"[grey]Filter:[/] contains [yellow]\"{Markup.Escape(filterPattern.Phrase!)}\"[/]\n"
+                : "[grey]Filter:[/] (none) - showing all repositories\n"
         );
+    }
 
-        IReadOnlyList<Repository> all = [];
+    private async Task<IReadOnlyList<Repository>> LoadRepositoriesAsync(FilterPattern filterPattern, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Repository> repositories = [];
         RepoLoadProgress? lastProgress = null;
 
         await AnsiConsole.Status()
@@ -99,37 +133,40 @@ public sealed class ConsoleApp
                     _ = ctx.Status($"Loading... seen: {p.Seen}, matched: {p.Matched}");
                 });
 
-                all = await _repoService.GetRepositoriesAsync(filterPattern, progress, cancellationToken).ConfigureAwait(false);
+                repositories = await _repoService.GetRepositoriesAsync(filterPattern, progress, cancellationToken).ConfigureAwait(false);
 
                 _ = lastProgress is not null
                     ? ctx.Status($"Loaded. seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
                     : ctx.Status("Loaded.");
             }).ConfigureAwait(false);
 
-        var sorted = all
-            .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return repositories;
+    }
 
+    private static List<Repository> SortRepositoriesByName(IReadOnlyList<Repository> repositories) =>
+    [
+        .. repositories.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+    ];
+
+    private void ShowResultsHeader(int resultCount)
+    {
         AnsiConsole.MarkupLine($"\n[bold]Workspace:[/] [green]{Markup.Escape(_options.Workspace)}[/]");
-        AnsiConsole.MarkupLine($"[bold]Results:[/] [green]{sorted.Count}[/] (sorted by name)\n");
+        AnsiConsole.MarkupLine($"[bold]Results:[/] [green]{resultCount}[/] (sorted by name)\n");
+    }
 
+    private static void RenderRepositoriesTable(List<Repository> sortedRepositories)
+    {
         var table = new Table()
             .Border(TableBorder.Double)
             .Expand()
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository name[/]"));
 
-        for (var i = 0; i < sorted.Count; i++)
+        for (var i = 0; i < sortedRepositories.Count; i++)
         {
-            _ = table.AddRow((i + 1).ToString(CultureInfo.InvariantCulture), Markup.Escape(sorted[i].Name));
+            _ = table.AddRow((i + 1).ToString(CultureInfo.InvariantCulture), Markup.Escape(sortedRepositories[i].Name));
         }
 
         AnsiConsole.Write(table);
-
-        AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
     }
-
-    private readonly IBitbucketApiClient _bitbucketApiClient;
-    private readonly IRepoService _repoService;
-    private readonly BitbucketOptions _options;
 }

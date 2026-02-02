@@ -24,7 +24,6 @@ builder.Services
 builder.Services.AddHttpClient<IBitbucketApiClient, BitbucketApiClient>((sp, http) =>
 {
     var settings = sp.GetRequiredService<IOptions<BitbucketOptions>>().Value;
-
     http.BaseAddress = new Uri(settings.BaseUrl.ToString().TrimEnd('/') + "/");
     http.DefaultRequestHeaders.Authorization = BitbucketApiClient.BuildAuthHeader(settings.AuthEmail, settings.AuthApiToken);
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
