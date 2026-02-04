@@ -21,7 +21,9 @@ public sealed class ConsoleApp
     /// <param name="bitbucketApiClient">Bitbucket API client.</param>
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
-    public ConsoleApp(IBitbucketApiClient bitbucketApiClient, IRepoService repoService, IOptions<BitbucketOptions> options)
+    public ConsoleApp(IBitbucketApiClient bitbucketApiClient,
+                      IRepoService repoService,
+                      IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(bitbucketApiClient);
         ArgumentNullException.ThrowIfNull(repoService);
