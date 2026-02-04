@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.Json;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Configuration;
@@ -20,14 +19,14 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
     /// <summary>
     /// Initializes a new instance of the <see cref="BitbucketApiClient"/> class.
     /// </summary>
-    /// <param name="http">HTTP client instance.</param>
+    /// <param name="transport">Bitbucket transport instance.</param>
     /// <param name="options">Bitbucket configuration options.</param>
-    public BitbucketApiClient(HttpClient http, IOptions<BitbucketOptions> options)
+    public BitbucketApiClient(IBitbucketTransport transport, IOptions<BitbucketOptions> options)
     {
-        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(transport);
         ArgumentNullException.ThrowIfNull(options);
 
-        _http = http;
+        _transport = transport;
         _options = options.Value;
     }
 
@@ -71,36 +70,20 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
     /// <inheritdoc />
     public async Task<BitbucketUser> AuthSelfCheckAsync(CancellationToken cancellationToken)
     {
-        using var resp = await _http.GetAsync(new Uri("user", UriKind.Relative), cancellationToken).ConfigureAwait(false);
-
-        if (!resp.IsSuccessStatusCode)
-        {
-            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            throw new HttpRequestException(
-                $"Bitbucket API error {(int)resp.StatusCode} {resp.ReasonPhrase}. Url=user. Body={body}");
-        }
-
-        var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        var dto = JsonSerializer.Deserialize<BitbucketUserDto>(json);
+        var dto = await _transport
+            .GetAsync<BitbucketUserDto>(new Uri("user", UriKind.Relative), cancellationToken)
+            .ConfigureAwait(false);
         return dto is null ? throw new InvalidOperationException("Bitbucket user response is empty.") : dto.ToDomain();
     }
 
     private async Task<RepoPage> GetRepositoriesPageAsync(Uri url, CancellationToken cancellationToken)
     {
-        using var resp = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
-
-        if (!resp.IsSuccessStatusCode)
-        {
-            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            throw new HttpRequestException(
-                $"Bitbucket API error {(int)resp.StatusCode} {resp.ReasonPhrase}. Url={url}. Body={body}");
-        }
-
-        var json = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        var dto = JsonSerializer.Deserialize<RepoPageDto>(json);
+        var dto = await _transport
+            .GetAsync<RepoPageDto>(url, cancellationToken)
+            .ConfigureAwait(false);
         return dto is null ? new RepoPage([], null) : dto.ToDomain();
     }
 
-    private readonly HttpClient _http;
+    private readonly IBitbucketTransport _transport;
     private readonly BitbucketOptions _options;
 }
