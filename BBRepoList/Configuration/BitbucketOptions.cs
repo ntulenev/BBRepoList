@@ -39,4 +39,10 @@ public sealed class BitbucketOptions
     /// </summary>
     [Range(1, 100)]
     public int PageLen { get; init; }
+
+    /// <summary>
+    /// Number of retries for transient Bitbucket API errors.
+    /// </summary>
+    [Range(0, 10)]
+    public int RetryCount { get; init; }
 }
