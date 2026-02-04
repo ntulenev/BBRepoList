@@ -120,7 +120,8 @@ public sealed class ConsoleAppTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
     }
 
