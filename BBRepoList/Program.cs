@@ -3,6 +3,7 @@ using BBRepoList.API;
 using BBRepoList.Configuration;
 using BBRepoList.Logic;
 using BBRepoList.Presentation;
+using BBRepoList.Transport;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +22,7 @@ builder.Services
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-builder.Services.AddHttpClient<IBitbucketApiClient, BitbucketApiClient>((sp, http) =>
+builder.Services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, http) =>
 {
     var settings = sp.GetRequiredService<IOptions<BitbucketOptions>>().Value;
     http.BaseAddress = new Uri(settings.BaseUrl.ToString().TrimEnd('/') + "/");
@@ -29,8 +30,10 @@ builder.Services.AddHttpClient<IBitbucketApiClient, BitbucketApiClient>((sp, htt
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
-builder.Services.AddSingleton<IRepoService, RepositoryService>();
-builder.Services.AddSingleton<ConsoleApp>();
+builder.Services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
+builder.Services.AddTransient<IBitbucketApiClient, BitbucketApiClient>();
+builder.Services.AddTransient<IRepoService, RepositoryService>();
+builder.Services.AddTransient<ConsoleApp>();
 
 using var host = builder.Build();
 
