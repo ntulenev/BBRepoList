@@ -19,7 +19,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
 
         // Act
@@ -40,7 +41,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
 
         // Act
@@ -61,7 +63,8 @@ public sealed class BitbucketOptionsTests
             Workspace = string.Empty,
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
 
         // Act
@@ -82,7 +85,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = " ",
             AuthApiToken = "token",
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
 
         // Act
@@ -103,7 +107,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = string.Empty,
-            PageLen = 25
+            PageLen = 25,
+            RetryCount = 0
         };
 
         // Act
@@ -124,7 +129,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 0
+            PageLen = 0,
+            RetryCount = 0
         };
 
         // Act
@@ -145,7 +151,8 @@ public sealed class BitbucketOptionsTests
             Workspace = "workspace",
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
-            PageLen = 101
+            PageLen = 101,
+            RetryCount = 0
         };
 
         // Act
@@ -153,6 +160,50 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("PageLen"));
+    }
+
+    [Fact(DisplayName = "Validation fails when retry count is below zero")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenRetryCountIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = -1
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("RetryCount"));
+    }
+
+    [Fact(DisplayName = "Validation fails when retry count is greater than ten")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenRetryCountIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 11
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("RetryCount"));
     }
 
     private static List<ValidationResult> Validate(BitbucketOptions options)
