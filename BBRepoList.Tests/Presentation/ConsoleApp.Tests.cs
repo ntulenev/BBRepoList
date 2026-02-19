@@ -1,12 +1,13 @@
-using FluentAssertions;
-using Moq;
-
 using BBRepoList.Abstractions;
 using BBRepoList.Configuration;
 using BBRepoList.Models;
 using BBRepoList.Presentation;
 
+using FluentAssertions;
+
 using Microsoft.Extensions.Options;
+
+using Moq;
 
 using Spectre.Console;
 using Spectre.Console.Testing;
@@ -74,6 +75,8 @@ public sealed class ConsoleAppTests
         using var cts = new CancellationTokenSource();
         var authCalls = 0;
         var repoCalls = 0;
+        var repo1CreatedOn = new DateTimeOffset(2025, 1, 10, 0, 0, 0, TimeSpan.Zero);
+        var repo2CreatedOn = new DateTimeOffset(2024, 12, 1, 0, 0, 0, TimeSpan.Zero);
 
         var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
@@ -92,14 +95,14 @@ public sealed class ConsoleAppTests
             })
             .ReturnsAsync(
             [
-                new Repository("Repo-1"),
-                new Repository("Repo-2")
+                new Repository("Repo-1", repo1CreatedOn),
+                new Repository("Repo-2", repo2CreatedOn)
             ]);
 
         var options = Options.Create(CreateOptions());
         var app = new ConsoleApp(api.Object, repoService.Object, options);
 
-        await RunWithTestConsoleAsync(async console =>
+        var output = await RunWithTestConsoleAsync(async console =>
         {
             console.Input.PushTextWithEnter("Repo");
 
@@ -110,6 +113,9 @@ public sealed class ConsoleAppTests
         // Assert
         authCalls.Should().Be(1);
         repoCalls.Should().Be(1);
+        output.Should().Contain("Created on");
+        output.Should().Contain("2025-01-10");
+        output.Should().Contain("2024-12-01");
     }
 
     private static BitbucketOptions CreateOptions()
@@ -125,7 +131,7 @@ public sealed class ConsoleAppTests
         };
     }
 
-    private static async Task RunWithTestConsoleAsync(Func<TestConsole, Task> action)
+    private static async Task<string> RunWithTestConsoleAsync(Func<TestConsole, Task> action)
     {
         var original = AnsiConsole.Console;
         var console = new TestConsole();
@@ -134,6 +140,7 @@ public sealed class ConsoleAppTests
         try
         {
             await action(console);
+            return console.Output;
         }
         finally
         {

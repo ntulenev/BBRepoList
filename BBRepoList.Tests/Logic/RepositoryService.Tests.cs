@@ -1,10 +1,12 @@
-using FluentAssertions;
-using Moq;
+using System.Runtime.CompilerServices;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Logic;
 using BBRepoList.Models;
-using System.Runtime.CompilerServices;
+
+using FluentAssertions;
+
+using Moq;
 
 namespace BBRepoList.Tests.Logic;
 

@@ -14,7 +14,7 @@ public static class BitbucketMappings
     public static Repository ToDomain(this RepositoryDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
-        return new Repository(dto.Name ?? string.Empty);
+        return new Repository(dto.Name ?? string.Empty, dto.CreatedOn);
     }
 
     /// <summary>

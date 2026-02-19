@@ -1,16 +1,17 @@
 using System.Net.Http.Headers;
 using System.Text;
 
-using FluentAssertions;
-using Moq;
-
 using BBRepoList.Abstractions;
 using BBRepoList.API;
 using BBRepoList.Configuration;
 using BBRepoList.Models;
 using BBRepoList.Transport;
 
+using FluentAssertions;
+
 using Microsoft.Extensions.Options;
+
+using Moq;
 
 namespace BBRepoList.Tests.API;
 

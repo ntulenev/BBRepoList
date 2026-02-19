@@ -42,7 +42,8 @@ public sealed class BitbucketMappingsTests
     public void ToDomainWhenRepositoryDtoIsValidCreatesRepository()
     {
         // Arrange
-        var dto = new RepositoryDto("Repo-1");
+        var createdOn = new DateTimeOffset(2025, 2, 3, 12, 30, 0, TimeSpan.Zero);
+        var dto = new RepositoryDto("Repo-1", createdOn);
 
         // Act
         var repository = dto.ToDomain();
@@ -50,6 +51,7 @@ public sealed class BitbucketMappingsTests
         // Assert
         repository.Should().BeOfType<Repository>();
         repository.Name.Should().Be("Repo-1");
+        repository.CreatedOn.Should().Be(createdOn);
     }
 
     [Fact(DisplayName = "ToDomain throws when repository page dto is null")]

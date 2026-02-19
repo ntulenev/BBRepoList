@@ -162,11 +162,18 @@ public sealed class ConsoleApp
             .Border(TableBorder.Double)
             .Expand()
             .AddColumn(new TableColumn("[green]#[/]").Centered())
-            .AddColumn(new TableColumn("[green]Repository name[/]"));
+            .AddColumn(new TableColumn("[green]Repository name[/]"))
+            .AddColumn(new TableColumn("[green]Created on[/]"));
 
         for (var i = 0; i < sortedRepositories.Count; i++)
         {
-            _ = table.AddRow((i + 1).ToString(CultureInfo.InvariantCulture), Markup.Escape(sortedRepositories[i].Name));
+            var repository = sortedRepositories[i];
+            var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(repository.Name),
+                Markup.Escape(createdOn));
         }
 
         AnsiConsole.Write(table);

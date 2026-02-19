@@ -6,5 +6,6 @@ namespace BBRepoList.Transport;
 /// Repository DTO returned by the Bitbucket API.
 /// </summary>
 public sealed record RepositoryDto(
-    [property: JsonPropertyName("name")] string? Name
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("created_on")] DateTimeOffset? CreatedOn = null
 );

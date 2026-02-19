@@ -78,4 +78,32 @@ public sealed class RepositoryTests
         // Assert
         repo.Name.Should().Be(name);
     }
+
+    [Fact(DisplayName = "Constructor sets created on")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenCreatedOnIsProvidedSetsCreatedOn()
+    {
+        // Arrange
+        var createdOn = new DateTimeOffset(2025, 1, 10, 9, 15, 0, TimeSpan.Zero);
+
+        // Act
+        var repo = new Repository("Repo-1", createdOn);
+
+        // Assert
+        repo.CreatedOn.Should().Be(createdOn);
+    }
+
+    [Fact(DisplayName = "Constructor leaves created on null when omitted")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenCreatedOnIsOmittedLeavesCreatedOnNull()
+    {
+        // Arrange
+        var name = "Repo-1";
+
+        // Act
+        var repo = new Repository(name);
+
+        // Assert
+        repo.CreatedOn.Should().BeNull();
+    }
 }
