@@ -27,8 +27,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             column,
             reportData.Repositories,
             reportData.Workspace,
-            reportData.AbandonedMonthsThreshold,
-            reportData.GeneratedAt);
+            reportData.AbandonedMonthsThreshold);
     }
 
     private static void ComposeRepositoriesSection(
@@ -74,33 +73,23 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var pullRequestsUrl = PdfPresentationHelpers.BuildPullRequestsUrl(workspace, repository.Slug);
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
-                if (string.IsNullOrWhiteSpace(repositoryUrl))
-                {
-                    _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(repository.Name);
-                }
-                else
-                {
-                    _ = table.Cell()
+                _ = string.IsNullOrWhiteSpace(repositoryUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(repository.Name)
+                    : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
                         .Hyperlink(repositoryUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(repository.Name);
-                }
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(createdOn);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(updatedOn);
-                if (repository.OpenPullRequestsCount is null || string.IsNullOrWhiteSpace(pullRequestsUrl))
-                {
-                    _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openPrs);
-                }
-                else
-                {
-                    _ = table.Cell()
+                _ = repository.OpenPullRequestsCount is null || string.IsNullOrWhiteSpace(pullRequestsUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openPrs)
+                    : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
                         .Hyperlink(pullRequestsUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(openPrs);
-                }
             }
         });
     }
@@ -147,31 +136,21 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var pullRequestsUrl = PdfPresentationHelpers.BuildPullRequestsUrl(workspace, repository.Slug);
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
-                if (string.IsNullOrWhiteSpace(repositoryUrl))
-                {
-                    _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(repository.Name);
-                }
-                else
-                {
-                    _ = table.Cell()
+                _ = string.IsNullOrWhiteSpace(repositoryUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(repository.Name)
+                    : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
                         .Hyperlink(repositoryUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(repository.Name);
-                }
 
-                if (string.IsNullOrWhiteSpace(pullRequestsUrl))
-                {
-                    _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openPrs);
-                }
-                else
-                {
-                    _ = table.Cell()
+                _ = string.IsNullOrWhiteSpace(pullRequestsUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openPrs)
+                    : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
                         .Hyperlink(pullRequestsUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(openPrs);
-                }
             }
         });
     }
@@ -180,25 +159,13 @@ public sealed class PdfContentComposer : IPdfContentComposer
         ColumnDescriptor column,
         IReadOnlyList<Repository> repositories,
         string workspace,
-        int abandonedMonthsThreshold,
-        DateTimeOffset generatedAt)
+        int abandonedMonthsThreshold)
     {
         var abandonedRepositories = repositories
-            .Select(repository =>
-            {
-                var lastActivityOn = repository.LastUpdatedOn ?? repository.CreatedOn;
-                if (lastActivityOn is null)
-                {
-                    return null;
-                }
-
-                var monthsWithoutActivity = PdfPresentationHelpers.CalculateFullMonthsBetween(lastActivityOn.Value, generatedAt);
-                return new AbandonedRepositoryRow(repository, lastActivityOn.Value, monthsWithoutActivity);
-            })
-            .Where(row => row is not null && row.MonthsWithoutActivity > abandonedMonthsThreshold)
-            .Select(static row => row!)
-            .OrderByDescending(static row => row.MonthsWithoutActivity)
-            .ThenBy(static row => row.Repository.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(repository => repository.CanCalculateInactivityTiming
+                                 && repository.MonthsWithoutActivity > abandonedMonthsThreshold)
+            .OrderByDescending(static repository => repository.MonthsWithoutActivity)
+            .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (abandonedRepositories.Count == 0)
@@ -233,25 +200,20 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
             for (var i = 0; i < abandonedRepositories.Count; i++)
             {
-                var row = abandonedRepositories[i];
-                var createdOn = row.Repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-                var lastActivityOn = row.LastActivityOn.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                var inactiveMonths = row.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
-                var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, row.Repository.Slug);
+                var repository = abandonedRepositories[i];
+                var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+                var lastActivityOn = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+                var inactiveMonths = repository.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
+                var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, repository.Slug);
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
-                if (string.IsNullOrWhiteSpace(repositoryUrl))
-                {
-                    _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.Repository.Name);
-                }
-                else
-                {
-                    _ = table.Cell()
+                _ = string.IsNullOrWhiteSpace(repositoryUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(repository.Name)
+                    : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
                         .Hyperlink(repositoryUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
-                        .Text(row.Repository.Name);
-                }
+                        .Text(repository.Name);
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(createdOn);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(lastActivityOn);

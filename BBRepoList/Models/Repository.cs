@@ -30,6 +30,10 @@ public sealed class Repository
         LastUpdatedOn = lastUpdatedOn;
         OpenPullRequestsCount = openPullRequestsCount;
         Slug = string.IsNullOrWhiteSpace(slug) ? null : slug.Trim();
+        CanCalculateInactivityTiming = createdOn is not null && lastUpdatedOn is not null;
+        MonthsWithoutActivity = CanCalculateInactivityTiming
+            ? CalculateFullMonthsBetween(lastUpdatedOn!.Value, DateTimeOffset.UtcNow)
+            : 0;
     }
 
     /// <summary>
@@ -56,4 +60,31 @@ public sealed class Repository
     /// Repository slug in workspace scope.
     /// </summary>
     public string? Slug { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether inactivity timing can be calculated.
+    /// </summary>
+    public bool CanCalculateInactivityTiming { get; }
+
+    /// <summary>
+    /// Number of full inactive months since last update.
+    /// </summary>
+    public int MonthsWithoutActivity { get; }
+
+    private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
+    {
+        if (to <= from)
+        {
+            return 0;
+        }
+
+        var months = ((to.Year - from.Year) * 12) + to.Month - from.Month;
+
+        if (to.Day < from.Day)
+        {
+            months--;
+        }
+
+        return Math.Max(months, 0);
+    }
 }

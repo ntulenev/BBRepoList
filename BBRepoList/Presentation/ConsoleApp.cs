@@ -231,24 +231,11 @@ public sealed class ConsoleApp
 
     private void RenderAbandonedRepositoriesTableIfAny(List<Repository> sortedRepositories)
     {
-        var now = DateTimeOffset.UtcNow;
-
         var abandonedRepositories = sortedRepositories
-            .Select(repository =>
-            {
-                var lastActivityOn = repository.LastUpdatedOn ?? repository.CreatedOn;
-                if (lastActivityOn is null)
-                {
-                    return null;
-                }
-
-                var monthsWithoutActivity = CalculateFullMonthsBetween(lastActivityOn.Value, now);
-                return new AbandonedRepositoryRow(repository, lastActivityOn.Value, monthsWithoutActivity);
-            })
-            .Where(row => row is not null && row.MonthsWithoutActivity > _options.AbandonedMonthsThreshold)
-            .Select(static row => row!)
-            .OrderByDescending(static row => row.MonthsWithoutActivity)
-            .ThenBy(static row => row.Repository.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(repository => repository.CanCalculateInactivityTiming
+                                 && repository.MonthsWithoutActivity > _options.AbandonedMonthsThreshold)
+            .OrderByDescending(static repository => repository.MonthsWithoutActivity)
+            .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (abandonedRepositories.Count == 0)
@@ -270,37 +257,20 @@ public sealed class ConsoleApp
 
         for (var i = 0; i < abandonedRepositories.Count; i++)
         {
-            var row = abandonedRepositories[i];
-            var createdOn = row.Repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-            var lastActivityOn = row.LastActivityOn.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var monthsWithoutActivity = row.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
+            var repository = abandonedRepositories[i];
+            var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+            var lastActivityOn = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+            var monthsWithoutActivity = repository.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
-                Markup.Escape(row.Repository.Name),
+                Markup.Escape(repository.Name),
                 Markup.Escape(createdOn),
                 Markup.Escape(lastActivityOn),
                 Markup.Escape(monthsWithoutActivity));
         }
 
         AnsiConsole.Write(table);
-    }
-
-    private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
-    {
-        if (to <= from)
-        {
-            return 0;
-        }
-
-        var months = ((to.Year - from.Year) * 12) + to.Month - from.Month;
-
-        if (to.Day < from.Day)
-        {
-            months--;
-        }
-
-        return Math.Max(months, 0);
     }
 
     private void RenderPdfReport(List<Repository> repositories, FilterPattern filterPattern)

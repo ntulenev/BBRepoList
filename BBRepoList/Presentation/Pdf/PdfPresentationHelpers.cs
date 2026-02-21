@@ -34,22 +34,6 @@ internal static class PdfPresentationHelpers
             .DefaultTextStyle(static style => style.FontSize(8));
     }
 
-    public static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
-    {
-        if (to <= from)
-        {
-            return 0;
-        }
-
-        var months = ((to.Year - from.Year) * 12) + to.Month - from.Month;
-        if (to.Day < from.Day)
-        {
-            months--;
-        }
-
-        return Math.Max(months, 0);
-    }
-
     public static string? BuildRepositoryBrowseUrl(string workspace, string? repositorySlug)
     {
         if (string.IsNullOrWhiteSpace(workspace) || string.IsNullOrWhiteSpace(repositorySlug))
