@@ -12,6 +12,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 using System.Net.Http.Headers;
+using System.Text;
+
+Console.OutputEncoding = Encoding.UTF8;
+Console.InputEncoding = Encoding.UTF8;
 
 var builder = Host.CreateApplicationBuilder(args);
 
