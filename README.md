@@ -65,6 +65,8 @@ The app renders:
 
 If `LoadOpenPullRequestsStatistics` is enabled, open PR count is resolved only for repositories that match the entered name filter.
 
+>For demonstration purposes, the program output shown in the screenshots uses synthetic data to avoid exposing information from real repositories.
+
 ### Console output
 ![Example output](BBList.png)
 
