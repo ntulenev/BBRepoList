@@ -19,17 +19,21 @@ public sealed class ConsoleApp
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
     /// <param name="bitbucketApiClient">Bitbucket API client.</param>
+    /// <param name="pdfReportRenderer">PDF report renderer.</param>
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public ConsoleApp(IBitbucketApiClient bitbucketApiClient,
+                      IPdfReportRenderer pdfReportRenderer,
                       IRepoService repoService,
                       IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(bitbucketApiClient);
+        ArgumentNullException.ThrowIfNull(pdfReportRenderer);
         ArgumentNullException.ThrowIfNull(repoService);
         ArgumentNullException.ThrowIfNull(options);
 
         _bitbucketApiClient = bitbucketApiClient;
+        _pdfReportRenderer = pdfReportRenderer;
         _repoService = repoService;
         _options = options.Value;
     }
@@ -57,10 +61,12 @@ public sealed class ConsoleApp
         RenderRepositoriesTable(sortedRepositories);
         RenderOpenPullRequestsTableIfAny(sortedRepositories);
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
+        RenderPdfReport(sortedRepositories, filterPattern);
         ShowDone();
     }
 
     private readonly IBitbucketApiClient _bitbucketApiClient;
+    private readonly IPdfReportRenderer _pdfReportRenderer;
     private readonly IRepoService _repoService;
     private readonly BitbucketOptions _options;
 
@@ -295,6 +301,18 @@ public sealed class ConsoleApp
         }
 
         return Math.Max(months, 0);
+    }
+
+    private void RenderPdfReport(List<Repository> repositories, FilterPattern filterPattern)
+    {
+        var reportData = new RepositoryPdfReportData(
+            _options.Workspace,
+            filterPattern.Phrase,
+            _options.AbandonedMonthsThreshold,
+            DateTimeOffset.Now,
+            repositories);
+
+        _pdfReportRenderer.RenderReport(reportData);
     }
 
 }

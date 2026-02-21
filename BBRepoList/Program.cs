@@ -3,6 +3,7 @@ using BBRepoList.API;
 using BBRepoList.Configuration;
 using BBRepoList.Logic;
 using BBRepoList.Presentation;
+using BBRepoList.Presentation.Pdf;
 using BBRepoList.Transport;
 
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,9 @@ builder.Services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, htt
 builder.Services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
 builder.Services.AddTransient<IBitbucketApiClient, BitbucketApiClient>();
 builder.Services.AddTransient<IRepoService, RepositoryService>();
+builder.Services.AddTransient<IPdfContentComposer, PdfContentComposer>();
+builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
+builder.Services.AddTransient<IPdfReportRenderer, QuestPdfReportRenderer>();
 builder.Services.AddTransient<ConsoleApp>();
 
 using var host = builder.Build();

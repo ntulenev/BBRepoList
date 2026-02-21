@@ -9,9 +9,8 @@ It supports:
 - Name filtering (`contains`, case-insensitive)
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
-- Additional summary tables:
-- `Repositories with open pull requests`
-- `Abandoned repositories`
+- Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
+- PDF report export (QuestPDF)
 
 ## Bitbucket REST API
 This app uses the Bitbucket Cloud REST API:
@@ -30,6 +29,10 @@ Example:
     "AuthApiToken": "your-api-token",
     "PageLen": 50,
     "RetryCount": 2,
+    "Pdf": {
+      "Enabled": true,
+      "OutputPath": "bbrepolist-report.pdf"
+    },
     "LoadOpenPullRequestsStatistics": false,
     "AbandonedMonthsThreshold": 12
   }
@@ -43,21 +46,20 @@ Settings:
 - `AuthApiToken`: Bitbucket API token.
 - `PageLen`: Repositories per page.
 - `RetryCount`: Retry count for transient API failures.
+- `Pdf.Enabled`: Enables/disables PDF report generation. Default: `true`.
+- `Pdf.OutputPath`: PDF file path (date suffix is added automatically).
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 
 ## Output
 The app renders:
-- Main repositories table with:
-- `Repository name`
-- `Created on`
-- `Last updated`
-- `Open pull requests`
+- Main repositories table with `Repository name`, `Created on`, `Last updated`, `Open pull requests`.
 - `Repositories with open pull requests` table (shown only when at least one repo has open PRs).
 - `Abandoned repositories` table (shown only when inactivity is above the configured threshold), including:
 - `Created on`
 - `Last activity on`
 - `Months inactive`
+- PDF report file with the same sections.
 
 If `LoadOpenPullRequestsStatistics` is enabled, open PR count is resolved only for repositories that match the entered name filter.
 

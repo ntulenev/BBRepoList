@@ -47,6 +47,12 @@ public sealed class BitbucketOptions
     public int RetryCount { get; init; }
 
     /// <summary>
+    /// PDF report settings.
+    /// </summary>
+    [Required]
+    public PdfOptions Pdf { get; init; } = new();
+
+    /// <summary>
     /// Whether open pull request statistics should be loaded.
     /// </summary>
     public bool LoadOpenPullRequestsStatistics { get; init; } = true;

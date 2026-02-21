@@ -28,6 +28,9 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().BeEmpty();
+        options.Pdf.Should().NotBeNull();
+        options.Pdf.Enabled.Should().BeTrue();
+        options.Pdf.OutputPath.Should().Be("bbrepolist-report.pdf");
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.AbandonedMonthsThreshold.Should().Be(12);
     }
@@ -230,6 +233,29 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "Validation fails when pdf options are null")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenPdfOptionsAreNullReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            Pdf = null!
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("Pdf"));
     }
 
     [Fact(DisplayName = "Validation fails when abandoned threshold is below one")]
