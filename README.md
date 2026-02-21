@@ -30,6 +30,7 @@ Example:
     "AuthApiToken": "your-api-token",
     "PageLen": 50,
     "RetryCount": 2,
+    "LoadOpenPullRequestsStatistics": false,
     "AbandonedMonthsThreshold": 12
   }
 }
@@ -42,6 +43,7 @@ Settings:
 - `AuthApiToken`: Bitbucket API token.
 - `PageLen`: Repositories per page.
 - `RetryCount`: Retry count for transient API failures.
+- `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 
 ## Output
@@ -57,6 +59,6 @@ The app renders:
 - `Last activity on`
 - `Months inactive`
 
-Open PR count is resolved only for repositories that match the entered name filter.
+If `LoadOpenPullRequestsStatistics` is enabled, open PR count is resolved only for repositories that match the entered name filter.
 
 ![Example output](BBList.png)

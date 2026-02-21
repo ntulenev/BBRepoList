@@ -1,10 +1,13 @@
 using System.Runtime.CompilerServices;
 
 using BBRepoList.Abstractions;
+using BBRepoList.Configuration;
 using BBRepoList.Logic;
 using BBRepoList.Models;
 
 using FluentAssertions;
+
+using Microsoft.Extensions.Options;
 
 using Moq;
 
@@ -18,9 +21,26 @@ public sealed class RepositoryServiceTests
     {
         // Arrange
         IBitbucketApiClient api = null!;
+        var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new RepositoryService(api);
+        Action act = () => _ = new RepositoryService(api, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when options are null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenOptionsAreNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict).Object;
+        IOptions<BitbucketOptions> options = null!;
+
+        // Act
+        Action act = () => _ = new RepositoryService(api, options);
 
         // Assert
         act.Should()
@@ -57,7 +77,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object);
+        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
@@ -112,7 +132,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object);
+        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("app"), progress, cts.Token);
@@ -161,7 +181,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object);
+        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("XXX"), progress, cts.Token);
@@ -183,6 +203,44 @@ public sealed class RepositoryServiceTests
 
     }
 
+    [Fact(DisplayName = "GetRepositoriesAsync does not load open pull requests when disabled in options")]
+    [Trait("Category", "Unit")]
+    public async Task GetRepositoriesAsyncWhenLoadOpenPullRequestsStatisticsIsDisabledDoesNotEnrichRepositories()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var apiCalls = 0;
+        var pages = new List<Repository[]>
+        {
+            new[]
+            {
+                new Repository("Repo-1"),
+                new Repository("Repo-2")
+            }
+        };
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+            .Callback(() => apiCalls++)
+            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+
+        var progressReports = new List<RepoLoadProgress>();
+        var progress = new Progress<RepoLoadProgress>(progressReports.Add);
+
+        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: false)));
+
+        // Act
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
+
+        // Assert
+        repositories.Should().HaveCount(2);
+        repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2");
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == null);
+
+        apiCalls.Should().Be(1);
+        progressReports.Should().HaveCount(2);
+    }
+
     private static async IAsyncEnumerable<Repository> StreamRepositories(
         IReadOnlyList<Repository[]> pages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -196,5 +254,20 @@ public sealed class RepositoryServiceTests
                 await Task.Yield();
             }
         }
+    }
+
+    private static BitbucketOptions CreateOptions(bool loadOpenPullRequestsStatistics = true)
+    {
+        return new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            AbandonedMonthsThreshold = 12,
+            LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics
+        };
     }
 }

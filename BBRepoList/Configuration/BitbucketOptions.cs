@@ -47,6 +47,11 @@ public sealed class BitbucketOptions
     public int RetryCount { get; init; }
 
     /// <summary>
+    /// Whether open pull request statistics should be loaded.
+    /// </summary>
+    public bool LoadOpenPullRequestsStatistics { get; init; } = true;
+
+    /// <summary>
     /// Inactivity threshold in months to treat a repository as abandoned.
     /// </summary>
     [Range(1, 120)]

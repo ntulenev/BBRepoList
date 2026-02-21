@@ -1,5 +1,8 @@
 using BBRepoList.Abstractions;
+using BBRepoList.Configuration;
 using BBRepoList.Models;
+
+using Microsoft.Extensions.Options;
 
 namespace BBRepoList.Logic;
 
@@ -12,11 +15,14 @@ public sealed class RepositoryService : IRepoService
     /// Initializes a new instance of the <see cref="RepositoryService"/> class.
     /// </summary>
     /// <param name="api">Bitbucket API client.</param>
-    public RepositoryService(IBitbucketApiClient api)
+    /// <param name="options">Bitbucket configuration options.</param>
+    public RepositoryService(IBitbucketApiClient api, IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(api);
+        ArgumentNullException.ThrowIfNull(options);
 
         _api = api;
+        _loadOpenPullRequestsStatistics = options.Value.LoadOpenPullRequestsStatistics;
     }
 
     /// <inheritdoc />
@@ -36,8 +42,11 @@ public sealed class RepositoryService : IRepoService
 
             if (filterPattern.Filter(repository))
             {
-                var enriched = await _api.PopulateOpenPullRequestCountAsync(repository, cancellationToken).ConfigureAwait(false);
-                all.Add(enriched);
+                var result = _loadOpenPullRequestsStatistics
+                    ? await _api.PopulateOpenPullRequestCountAsync(repository, cancellationToken).ConfigureAwait(false)
+                    : repository;
+
+                all.Add(result);
                 matched++;
             }
 
@@ -48,4 +57,5 @@ public sealed class RepositoryService : IRepoService
     }
 
     private readonly IBitbucketApiClient _api;
+    private readonly bool _loadOpenPullRequestsStatistics;
 }

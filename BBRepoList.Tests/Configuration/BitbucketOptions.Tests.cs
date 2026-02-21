@@ -28,6 +28,7 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().BeEmpty();
+        options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.AbandonedMonthsThreshold.Should().Be(12);
     }
 
@@ -205,6 +206,30 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("RetryCount"));
+    }
+
+    [Fact(DisplayName = "Validation succeeds when open pull requests statistics loading is disabled")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenLoadOpenPullRequestsStatisticsIsDisabledReturnsNoErrors()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            LoadOpenPullRequestsStatistics = false,
+            AbandonedMonthsThreshold = 12
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().BeEmpty();
     }
 
     [Fact(DisplayName = "Validation fails when abandoned threshold is below one")]
