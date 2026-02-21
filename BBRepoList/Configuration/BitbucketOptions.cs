@@ -58,6 +58,12 @@ public sealed class BitbucketOptions
     public bool LoadOpenPullRequestsStatistics { get; init; } = true;
 
     /// <summary>
+    /// Maximum number of concurrent open pull request statistics requests.
+    /// </summary>
+    [Range(1, 64)]
+    public int OpenPullRequestsLoadThreshold { get; init; } = 8;
+
+    /// <summary>
     /// Inactivity threshold in months to treat a repository as abandoned.
     /// </summary>
     [Range(1, 120)]

@@ -140,7 +140,10 @@ public sealed class ConsoleApp
                 var progress = new Progress<RepoLoadProgress>(p =>
                 {
                     lastProgress = p;
-                    _ = ctx.Status($"Loading... seen: {p.Seen}, matched: {p.Matched}");
+                    _ = p.IsLoadingPullRequestStatistics
+                        ? ctx.Status(
+                            $"Loading PR statistics... {p.PullRequestStatisticsLoaded}/{p.PullRequestStatisticsTotal} (matched: {p.Matched})")
+                        : ctx.Status($"Loading repositories... seen: {p.Seen}, matched: {p.Matched}");
                 });
 
                 repositories = await _repoService.GetRepositoriesAsync(filterPattern, progress, cancellationToken).ConfigureAwait(false);

@@ -23,6 +23,7 @@ public sealed class RepositoryService : IRepoService
 
         _api = api;
         _loadOpenPullRequestsStatistics = options.Value.LoadOpenPullRequestsStatistics;
+        _openPullRequestsLoadThreshold = options.Value.OpenPullRequestsLoadThreshold;
     }
 
     /// <inheritdoc />
@@ -31,7 +32,7 @@ public sealed class RepositoryService : IRepoService
         IProgress<RepoLoadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var all = new List<Repository>();
+        var matchedRepositories = new List<Repository>();
 
         var seen = 0;
         var matched = 0;
@@ -42,20 +43,61 @@ public sealed class RepositoryService : IRepoService
 
             if (filterPattern.Filter(repository))
             {
-                var result = _loadOpenPullRequestsStatistics
-                    ? await _api.PopulateOpenPullRequestCountAsync(repository, cancellationToken).ConfigureAwait(false)
-                    : repository;
-
-                all.Add(result);
                 matched++;
+                matchedRepositories.Add(repository);
             }
 
             progress?.Report(new RepoLoadProgress(seen, matched));
         }
 
-        return all;
+        if (!_loadOpenPullRequestsStatistics)
+        {
+            return matchedRepositories;
+        }
+
+        if (matchedRepositories.Count == 0)
+        {
+            return matchedRepositories;
+        }
+
+        var enrichedRepositories = new Repository[matchedRepositories.Count];
+
+        progress?.Report(new RepoLoadProgress(
+            seen,
+            matched,
+            isLoadingPullRequestStatistics: true,
+            pullRequestStatisticsLoaded: 0,
+            pullRequestStatisticsTotal: matchedRepositories.Count));
+
+        var prStatisticsLoaded = 0;
+
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, matchedRepositories.Count),
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = _openPullRequestsLoadThreshold,
+                CancellationToken = cancellationToken
+            },
+            async (index, token) =>
+            {
+                var enrichedRepository = await _api
+                    .PopulateOpenPullRequestCountAsync(matchedRepositories[index], token)
+                    .ConfigureAwait(false);
+                enrichedRepositories[index] = enrichedRepository;
+
+                var currentLoaded = Interlocked.Increment(ref prStatisticsLoaded);
+                progress?.Report(new RepoLoadProgress(
+                    seen,
+                    matched,
+                    isLoadingPullRequestStatistics: true,
+                    pullRequestStatisticsLoaded: currentLoaded,
+                    pullRequestStatisticsTotal: matchedRepositories.Count));
+            }).ConfigureAwait(false);
+
+        return enrichedRepositories;
     }
 
     private readonly IBitbucketApiClient _api;
     private readonly bool _loadOpenPullRequestsStatistics;
+    private readonly int _openPullRequestsLoadThreshold;
 }

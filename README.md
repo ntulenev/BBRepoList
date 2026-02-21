@@ -34,6 +34,7 @@ Example:
       "OutputPath": "bbrepolist-report.pdf"
     },
     "LoadOpenPullRequestsStatistics": false,
+    "OpenPullRequestsLoadThreshold": 8,
     "AbandonedMonthsThreshold": 12
   }
 }
@@ -49,6 +50,7 @@ Settings:
 - `Pdf.Enabled`: Enables/disables PDF report generation. Default: `true`.
 - `Pdf.OutputPath`: PDF file path (date suffix is added automatically).
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
+- `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `8`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 
 ## Output

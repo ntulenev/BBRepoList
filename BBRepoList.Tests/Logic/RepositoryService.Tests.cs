@@ -69,7 +69,7 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) =>
                 new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 1, repository.Slug));
@@ -89,13 +89,24 @@ public sealed class RepositoryServiceTests
 
         apiCalls.Should().Be(1);
         enrichCalls.Should().Be(3);
-        progressReports.Should().HaveCount(3);
+        progressReports.Should().HaveCount(7);
         progressReports[0].Seen.Should().Be(1);
         progressReports[0].Matched.Should().Be(1);
+        progressReports[0].IsLoadingPullRequestStatistics.Should().BeFalse();
         progressReports[1].Seen.Should().Be(2);
         progressReports[1].Matched.Should().Be(2);
+        progressReports[1].IsLoadingPullRequestStatistics.Should().BeFalse();
         progressReports[2].Seen.Should().Be(3);
         progressReports[2].Matched.Should().Be(3);
+        progressReports[2].IsLoadingPullRequestStatistics.Should().BeFalse();
+        progressReports.Should().Contain(report =>
+            report.IsLoadingPullRequestStatistics
+            && report.PullRequestStatisticsLoaded == 0
+            && report.PullRequestStatisticsTotal == 3);
+        progressReports.Should().Contain(report =>
+            report.IsLoadingPullRequestStatistics
+            && report.PullRequestStatisticsLoaded == 3
+            && report.PullRequestStatisticsTotal == 3);
     }
 
     [Fact(DisplayName = "GetRepositoriesAsync filters repositories when search phrase is provided")]
@@ -124,7 +135,7 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) =>
                 new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 2, repository.Slug));
@@ -144,15 +155,27 @@ public sealed class RepositoryServiceTests
 
         apiCalls.Should().Be(1);
         enrichCalls.Should().Be(2);
-        progressReports.Should().HaveCount(4);
+        progressReports.Should().HaveCount(7);
         progressReports[0].Seen.Should().Be(1);
         progressReports[0].Matched.Should().Be(0);
+        progressReports[0].IsLoadingPullRequestStatistics.Should().BeFalse();
         progressReports[1].Seen.Should().Be(2);
         progressReports[1].Matched.Should().Be(1);
+        progressReports[1].IsLoadingPullRequestStatistics.Should().BeFalse();
         progressReports[2].Seen.Should().Be(3);
         progressReports[2].Matched.Should().Be(2);
+        progressReports[2].IsLoadingPullRequestStatistics.Should().BeFalse();
         progressReports[3].Seen.Should().Be(4);
         progressReports[3].Matched.Should().Be(2);
+        progressReports[3].IsLoadingPullRequestStatistics.Should().BeFalse();
+        progressReports.Should().Contain(report =>
+            report.IsLoadingPullRequestStatistics
+            && report.PullRequestStatisticsLoaded == 0
+            && report.PullRequestStatisticsTotal == 2);
+        progressReports.Should().Contain(report =>
+            report.IsLoadingPullRequestStatistics
+            && report.PullRequestStatisticsLoaded == 2
+            && report.PullRequestStatisticsTotal == 2);
 
     }
 
@@ -174,7 +197,7 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) => repository);
 
@@ -241,6 +264,67 @@ public sealed class RepositoryServiceTests
         progressReports.Should().HaveCount(2);
     }
 
+    [Fact(DisplayName = "GetRepositoriesAsync loads open pull requests with configured concurrency threshold")]
+    [Trait("Category", "Unit")]
+    public async Task GetRepositoriesAsyncWhenThresholdIsConfiguredRespectsConfiguredConcurrency()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var pages = new List<Repository[]>
+        {
+            new[]
+            {
+                new Repository("Repo-1"),
+                new Repository("Repo-2"),
+                new Repository("Repo-3"),
+                new Repository("Repo-4")
+            }
+        };
+        var inFlight = 0;
+        var maxInFlight = 0;
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+            .Returns<Repository, CancellationToken>(async (repository, token) =>
+            {
+                var currentInFlight = Interlocked.Increment(ref inFlight);
+                UpdateMaxInFlight(ref maxInFlight, currentInFlight);
+
+                try
+                {
+                    await Task.Delay(40, token);
+                    return new Repository(
+                        repository.Name,
+                        repository.CreatedOn,
+                        repository.LastUpdatedOn,
+                        3,
+                        repository.Slug);
+                }
+                finally
+                {
+                    _ = Interlocked.Decrement(ref inFlight);
+                }
+            });
+
+        var service = new RepositoryService(
+            api.Object,
+            Options.Create(CreateOptions(
+                loadOpenPullRequestsStatistics: true,
+                openPullRequestsLoadThreshold: 2)));
+
+        // Act
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress: null, cts.Token);
+
+        // Assert
+        repositories.Should().HaveCount(4);
+        repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2", "Repo-3", "Repo-4");
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == 3);
+        maxInFlight.Should().BeLessThanOrEqualTo(2);
+        maxInFlight.Should().BeGreaterThan(1);
+    }
+
     private static async IAsyncEnumerable<Repository> StreamRepositories(
         IReadOnlyList<Repository[]> pages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -256,7 +340,9 @@ public sealed class RepositoryServiceTests
         }
     }
 
-    private static BitbucketOptions CreateOptions(bool loadOpenPullRequestsStatistics = true)
+    private static BitbucketOptions CreateOptions(
+        bool loadOpenPullRequestsStatistics = true,
+        int openPullRequestsLoadThreshold = 8)
     {
         return new BitbucketOptions
         {
@@ -267,7 +353,25 @@ public sealed class RepositoryServiceTests
             PageLen = 25,
             RetryCount = 0,
             AbandonedMonthsThreshold = 12,
-            LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics
+            LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics,
+            OpenPullRequestsLoadThreshold = openPullRequestsLoadThreshold
         };
+    }
+
+    private static void UpdateMaxInFlight(ref int maxInFlight, int currentInFlight)
+    {
+        while (true)
+        {
+            var snapshot = maxInFlight;
+            if (currentInFlight <= snapshot)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref maxInFlight, currentInFlight, snapshot) == snapshot)
+            {
+                return;
+            }
+        }
     }
 }

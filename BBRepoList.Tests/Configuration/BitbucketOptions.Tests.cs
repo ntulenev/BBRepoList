@@ -32,6 +32,7 @@ public sealed class BitbucketOptionsTests
         options.Pdf.Enabled.Should().BeTrue();
         options.Pdf.OutputPath.Should().Be("bbrepolist-report.pdf");
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
+        options.OpenPullRequestsLoadThreshold.Should().Be(8);
         options.AbandonedMonthsThreshold.Should().Be(12);
     }
 
@@ -233,6 +234,52 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "Validation fails when open pull requests threshold is below one")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenOpenPullRequestsLoadThresholdIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            OpenPullRequestsLoadThreshold = 0
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("OpenPullRequestsLoadThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when open pull requests threshold is above sixty four")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenOpenPullRequestsLoadThresholdIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            OpenPullRequestsLoadThreshold = 65
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("OpenPullRequestsLoadThreshold"));
     }
 
     [Fact(DisplayName = "Validation fails when pdf options are null")]
