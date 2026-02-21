@@ -45,4 +45,10 @@ public sealed class BitbucketOptions
     /// </summary>
     [Range(0, 10)]
     public int RetryCount { get; init; }
+
+    /// <summary>
+    /// Inactivity threshold in months to treat a repository as abandoned.
+    /// </summary>
+    [Range(1, 120)]
+    public int AbandonedMonthsThreshold { get; init; } = 12;
 }

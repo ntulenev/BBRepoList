@@ -142,6 +142,66 @@ public sealed class BitbucketApiClientTests
         repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2", "Repo-3");
     }
 
+    [Fact(DisplayName = "PopulateOpenPullRequestCountAsync enriches open pull requests count when slug is present")]
+    [Trait("Category", "Unit")]
+    public async Task PopulateOpenPullRequestCountAsyncWhenSlugIsPresentLoadsOpenPullRequestsCount()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var sendCalls = 0;
+        var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
+
+        var repository = new Repository("Repo-1", null, null, null, "repo-1");
+        var pullRequestSummaryDto = new PullRequestPageSummaryDto(9);
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
+                It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(pullRequestSummaryDto);
+
+        var client = new BitbucketApiClient(transport.Object, Options.Create(CreateOptions()));
+
+        // Act
+        var enriched = await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
+
+        // Assert
+        sendCalls.Should().Be(1);
+        enriched.Name.Should().Be("Repo-1");
+        enriched.OpenPullRequestsCount.Should().Be(9);
+    }
+
+    [Fact(DisplayName = "PopulateOpenPullRequestCountAsync keeps repository when pull requests count lookup fails")]
+    [Trait("Category", "Unit")]
+    public async Task PopulateOpenPullRequestCountAsyncWhenPullRequestsLookupFailsKeepsRepository()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var sendCalls = 0;
+        var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
+        var repository = new Repository("Repo-1", null, null, null, "repo-1");
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
+                It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => sendCalls++)
+            .ThrowsAsync(new HttpRequestException("boom"));
+
+        var client = new BitbucketApiClient(transport.Object, Options.Create(CreateOptions()));
+
+        // Act
+        var enriched = await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
+
+        // Assert
+        sendCalls.Should().Be(1);
+        enriched.Name.Should().Be("Repo-1");
+        enriched.OpenPullRequestsCount.Should().BeNull();
+    }
+
     [Fact(DisplayName = "GetRepositoriesAsync returns empty sequence when response body is null")]
     [Trait("Category", "Unit")]
     public async Task GetRepositoriesAsyncWhenResponseBodyIsNullReturnsEmptySequence()

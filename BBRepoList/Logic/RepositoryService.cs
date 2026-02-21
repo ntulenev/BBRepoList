@@ -36,7 +36,8 @@ public sealed class RepositoryService : IRepoService
 
             if (filterPattern.Filter(repository))
             {
-                all.Add(repository);
+                var enriched = await _api.PopulateOpenPullRequestCountAsync(repository, cancellationToken).ConfigureAwait(false);
+                all.Add(enriched);
                 matched++;
             }
 

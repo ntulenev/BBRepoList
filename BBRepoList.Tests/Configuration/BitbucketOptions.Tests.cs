@@ -28,6 +28,7 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().BeEmpty();
+        options.AbandonedMonthsThreshold.Should().Be(12);
     }
 
     [Fact(DisplayName = "Validation fails when base url is missing")]
@@ -204,6 +205,52 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("RetryCount"));
+    }
+
+    [Fact(DisplayName = "Validation fails when abandoned threshold is below one")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenAbandonedMonthsThresholdIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            AbandonedMonthsThreshold = 0
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("AbandonedMonthsThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when abandoned threshold is above one hundred twenty")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenAbandonedMonthsThresholdIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            AbandonedMonthsThreshold = 121
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("AbandonedMonthsThreshold"));
     }
 
     private static List<ValidationResult> Validate(BitbucketOptions options)

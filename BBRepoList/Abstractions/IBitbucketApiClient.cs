@@ -20,4 +20,12 @@ public interface IBitbucketApiClient
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Authenticated Bitbucket user.</returns>
     Task<BitbucketUser> AuthSelfCheckAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Populates repository open pull requests count when available.
+    /// </summary>
+    /// <param name="repository">Repository to enrich.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Repository enriched with open pull requests count when resolved.</returns>
+    Task<Repository> PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken);
 }

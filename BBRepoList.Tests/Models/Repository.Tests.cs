@@ -93,6 +93,48 @@ public sealed class RepositoryTests
         repo.CreatedOn.Should().Be(createdOn);
     }
 
+    [Fact(DisplayName = "Constructor sets last updated on")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenLastUpdatedOnIsProvidedSetsLastUpdatedOn()
+    {
+        // Arrange
+        var lastUpdatedOn = new DateTimeOffset(2025, 1, 15, 18, 10, 0, TimeSpan.Zero);
+
+        // Act
+        var repo = new Repository("Repo-1", null, lastUpdatedOn);
+
+        // Assert
+        repo.LastUpdatedOn.Should().Be(lastUpdatedOn);
+    }
+
+    [Fact(DisplayName = "Constructor sets open pull requests count")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenOpenPullRequestsCountIsProvidedSetsOpenPullRequestsCount()
+    {
+        // Arrange
+        var openPullRequestsCount = 7;
+
+        // Act
+        var repo = new Repository("Repo-1", null, null, openPullRequestsCount);
+
+        // Assert
+        repo.OpenPullRequestsCount.Should().Be(openPullRequestsCount);
+    }
+
+    [Fact(DisplayName = "Constructor trims slug")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenSlugHasWhitespaceTrimsSlug()
+    {
+        // Arrange
+        var slug = "  repo-1  ";
+
+        // Act
+        var repo = new Repository("Repo-1", null, null, null, slug);
+
+        // Assert
+        repo.Slug.Should().Be("repo-1");
+    }
+
     [Fact(DisplayName = "Constructor leaves created on null when omitted")]
     [Trait("Category", "Unit")]
     public void ConstructorWhenCreatedOnIsOmittedLeavesCreatedOnNull()
@@ -105,5 +147,8 @@ public sealed class RepositoryTests
 
         // Assert
         repo.CreatedOn.Should().BeNull();
+        repo.LastUpdatedOn.Should().BeNull();
+        repo.OpenPullRequestsCount.Should().BeNull();
+        repo.Slug.Should().BeNull();
     }
 }

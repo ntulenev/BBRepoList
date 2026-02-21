@@ -55,6 +55,8 @@ public sealed class ConsoleApp
 
         ShowResultsHeader(sortedRepositories.Count);
         RenderRepositoriesTable(sortedRepositories);
+        RenderOpenPullRequestsTableIfAny(sortedRepositories);
+        RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
         ShowDone();
     }
 
@@ -163,19 +165,136 @@ public sealed class ConsoleApp
             .Expand()
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository name[/]"))
-            .AddColumn(new TableColumn("[green]Created on[/]"));
+            .AddColumn(new TableColumn("[green]Created on[/]"))
+            .AddColumn(new TableColumn("[green]Last updated[/]"))
+            .AddColumn(new TableColumn("[green]Open pull requests[/]"));
 
         for (var i = 0; i < sortedRepositories.Count; i++)
         {
             var repository = sortedRepositories[i];
             var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+            var lastUpdated = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+            var openPullRequests = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
                 Markup.Escape(repository.Name),
-                Markup.Escape(createdOn));
+                Markup.Escape(createdOn),
+                Markup.Escape(lastUpdated),
+                Markup.Escape(openPullRequests));
         }
 
         AnsiConsole.Write(table);
     }
+
+    private static void RenderOpenPullRequestsTableIfAny(List<Repository> sortedRepositories)
+    {
+        var repositoriesWithOpenPullRequests = sortedRepositories
+            .Where(static repository => repository.OpenPullRequestsCount.GetValueOrDefault() > 0)
+            .OrderByDescending(static repository => repository.OpenPullRequestsCount)
+            .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (repositoriesWithOpenPullRequests.Count == 0)
+        {
+            return;
+        }
+
+        AnsiConsole.MarkupLine("\n[bold]Repositories with open pull requests[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Double)
+            .Expand()
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Repository name[/]"))
+            .AddColumn(new TableColumn("[green]Open pull requests[/]"));
+
+        for (var i = 0; i < repositoriesWithOpenPullRequests.Count; i++)
+        {
+            var repository = repositoriesWithOpenPullRequests[i];
+            var openPullRequests = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(repository.Name),
+                Markup.Escape(openPullRequests));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private void RenderAbandonedRepositoriesTableIfAny(List<Repository> sortedRepositories)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var abandonedRepositories = sortedRepositories
+            .Select(repository =>
+            {
+                var lastActivityOn = repository.LastUpdatedOn ?? repository.CreatedOn;
+                if (lastActivityOn is null)
+                {
+                    return null;
+                }
+
+                var monthsWithoutActivity = CalculateFullMonthsBetween(lastActivityOn.Value, now);
+                return new AbandonedRepositoryRow(repository, lastActivityOn.Value, monthsWithoutActivity);
+            })
+            .Where(row => row is not null && row.MonthsWithoutActivity > _options.AbandonedMonthsThreshold)
+            .Select(static row => row!)
+            .OrderByDescending(static row => row.MonthsWithoutActivity)
+            .ThenBy(static row => row.Repository.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (abandonedRepositories.Count == 0)
+        {
+            return;
+        }
+
+        AnsiConsole.MarkupLine(
+            $"\n[bold]Abandoned repositories[/] [grey](more than {_options.AbandonedMonthsThreshold} months without activity)[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Double)
+            .Expand()
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Repository name[/]"))
+            .AddColumn(new TableColumn("[green]Created on[/]"))
+            .AddColumn(new TableColumn("[green]Last activity on[/]"))
+            .AddColumn(new TableColumn("[green]Months inactive[/]"));
+
+        for (var i = 0; i < abandonedRepositories.Count; i++)
+        {
+            var row = abandonedRepositories[i];
+            var createdOn = row.Repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
+            var lastActivityOn = row.LastActivityOn.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var monthsWithoutActivity = row.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(row.Repository.Name),
+                Markup.Escape(createdOn),
+                Markup.Escape(lastActivityOn),
+                Markup.Escape(monthsWithoutActivity));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
+    {
+        if (to <= from)
+        {
+            return 0;
+        }
+
+        var months = ((to.Year - from.Year) * 12) + to.Month - from.Month;
+
+        if (to.Day < from.Day)
+        {
+            months--;
+        }
+
+        return Math.Max(months, 0);
+    }
+
 }

@@ -84,6 +84,38 @@ public sealed class BitbucketApiClient : IBitbucketApiClient
         return dto is null ? new RepoPage([], null) : dto.ToDomain();
     }
 
+    /// <inheritdoc />
+    public async Task<Repository> PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        if (repository.OpenPullRequestsCount is not null || string.IsNullOrWhiteSpace(repository.Slug))
+        {
+            return repository;
+        }
+
+        try
+        {
+            var escapedSlug = Uri.EscapeDataString(repository.Slug);
+            var url = new Uri(
+                $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen=1&fields=size",
+                UriKind.Relative);
+
+            var summary = await _transport.GetAsync<PullRequestPageSummaryDto>(url, cancellationToken).ConfigureAwait(false);
+
+            return new Repository(
+                repository.Name,
+                repository.CreatedOn,
+                repository.LastUpdatedOn,
+                summary?.Size,
+                repository.Slug);
+        }
+        catch (HttpRequestException)
+        {
+            return repository;
+        }
+    }
+
     private readonly IBitbucketTransport _transport;
     private readonly BitbucketOptions _options;
 }

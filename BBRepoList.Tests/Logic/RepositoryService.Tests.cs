@@ -34,6 +34,7 @@ public sealed class RepositoryServiceTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var apiCalls = 0;
+        var enrichCalls = 0;
         var pages = new List<Repository[]>
         {
              new []
@@ -48,6 +49,10 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+            .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
+            .ReturnsAsync((Repository repository, CancellationToken _) =>
+                new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 1, repository.Slug));
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -60,8 +65,10 @@ public sealed class RepositoryServiceTests
         // Assert
         repositories.Should().HaveCount(3);
         repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2", "Repo-3");
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == 1);
 
         apiCalls.Should().Be(1);
+        enrichCalls.Should().Be(3);
         progressReports.Should().HaveCount(3);
         progressReports[0].Seen.Should().Be(1);
         progressReports[0].Matched.Should().Be(1);
@@ -78,6 +85,7 @@ public sealed class RepositoryServiceTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var apiCalls = 0;
+        var enrichCalls = 0;
         var pages = new List<Repository[]>
         {
             new[]
@@ -96,6 +104,10 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+            .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
+            .ReturnsAsync((Repository repository, CancellationToken _) =>
+                new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 2, repository.Slug));
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -108,8 +120,10 @@ public sealed class RepositoryServiceTests
         // Assert
         repositories.Should().HaveCount(2);
         repositories.Select(r => r.Name).Should().ContainInOrder("App-One", "app-two");
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == 2);
 
         apiCalls.Should().Be(1);
+        enrichCalls.Should().Be(2);
         progressReports.Should().HaveCount(4);
         progressReports[0].Seen.Should().Be(1);
         progressReports[0].Matched.Should().Be(0);
@@ -129,6 +143,7 @@ public sealed class RepositoryServiceTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var apiCalls = 0;
+        var enrichCalls = 0;
         var pages = new List<Repository[]>
         {
             new[]{new Repository("Repo-1"), new Repository("App-One") },
@@ -139,6 +154,9 @@ public sealed class RepositoryServiceTests
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), cts.Token))
+            .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
+            .ReturnsAsync((Repository repository, CancellationToken _) => repository);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -152,6 +170,7 @@ public sealed class RepositoryServiceTests
         repositories.Should().HaveCount(0);
 
         apiCalls.Should().Be(1);
+        enrichCalls.Should().Be(0);
         progressReports.Should().HaveCount(4);
         progressReports[0].Seen.Should().Be(1);
         progressReports[0].Matched.Should().Be(0);
