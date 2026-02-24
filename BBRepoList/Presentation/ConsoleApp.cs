@@ -46,7 +46,8 @@ public sealed class ConsoleApp
     {
         ShowTitle();
 
-        if (!await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false))
+        var authenticatedUser = await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        if (authenticatedUser is null)
         {
             return;
         }
@@ -56,12 +57,17 @@ public sealed class ConsoleApp
 
         var repositories = await LoadRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false);
         var sortedRepositories = SortRepositoriesByName(repositories);
+        var pullRequestDetails = await LoadPullRequestDetailsAsync(
+            sortedRepositories,
+            authenticatedUser.Uuid,
+            cancellationToken).ConfigureAwait(false);
 
         ShowResultsHeader(sortedRepositories.Count);
         RenderRepositoriesTable(sortedRepositories);
         RenderOpenPullRequestsTableIfAny(sortedRepositories);
+        RenderPullRequestDetailsReportIfAny(pullRequestDetails);
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
-        RenderPdfReport(sortedRepositories, filterPattern);
+        RenderPdfReport(sortedRepositories, pullRequestDetails, filterPattern);
         ShowDone();
     }
 
@@ -74,9 +80,9 @@ public sealed class ConsoleApp
 
     private static void ShowDone() => AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
 
-    private async Task<bool> TryAuthenticateAsync(CancellationToken cancellationToken)
+    private async Task<BitbucketUser?> TryAuthenticateAsync(CancellationToken cancellationToken)
     {
-        var authOk = true;
+        var authenticatedUser = default(BitbucketUser);
 
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
@@ -85,17 +91,16 @@ public sealed class ConsoleApp
             {
                 try
                 {
-                    var user = await _bitbucketApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
-                    ShowAuthenticatedUser(user);
+                    authenticatedUser = await _bitbucketApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
+                    ShowAuthenticatedUser(authenticatedUser);
                 }
                 catch (HttpRequestException ex)
                 {
                     AnsiConsole.MarkupLine($"[red]Auth failed:[/] {Markup.Escape(ex.Message)}");
-                    authOk = false;
                 }
             }).ConfigureAwait(false);
 
-        return authOk;
+        return authenticatedUser;
     }
 
     private static void ShowAuthenticatedUser(BitbucketUser user)
@@ -161,6 +166,58 @@ public sealed class ConsoleApp
         .. repositories.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
     ];
 
+    private async Task<IReadOnlyList<PullRequestDetail>> LoadPullRequestDetailsAsync(
+        List<Repository> repositories,
+        BitbucketId currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (!_options.PullRequestDetails.IsEnabled || repositories.Count == 0)
+        {
+            return [];
+        }
+
+        var repositoriesToInspect = repositories
+            .Where(static repository => !string.IsNullOrWhiteSpace(repository.Slug)
+                                        && (repository.OpenPullRequestsCount is null
+                                            || repository.OpenPullRequestsCount > 0))
+            .ToList();
+
+        if (repositoriesToInspect.Count == 0)
+        {
+            return [];
+        }
+
+        var pullRequestDetails = new List<PullRequestDetail>();
+
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Star)
+            .SpinnerStyle(Style.Parse("green"))
+            .StartAsync("Loading Open PR details...", async ctx =>
+            {
+                for (var index = 0; index < repositoriesToInspect.Count; index++)
+                {
+                    var repository = repositoriesToInspect[index];
+                    _ = ctx.Status($"Loading Open PR details... {index + 1}/{repositoriesToInspect.Count} repositories");
+
+                    var details = await _bitbucketApiClient
+                        .GetOpenPullRequestDetailsAsync(repository, currentUserId, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    pullRequestDetails.AddRange(details);
+                }
+
+                _ = ctx.Status($"Loaded Open PR details for {repositoriesToInspect.Count} repositories.");
+            }).ConfigureAwait(false);
+
+        var sortedDetails = pullRequestDetails
+            .OrderByDescending(static detail => detail.OpenedOn)
+            .ThenBy(static detail => detail.RepositoryName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static detail => detail.PullRequestId)
+            .ToList();
+
+        return sortedDetails;
+    }
+
     private void ShowResultsHeader(int resultCount)
     {
         AnsiConsole.MarkupLine($"\n[bold]Workspace:[/] [green]{Markup.Escape(_options.Workspace)}[/]");
@@ -200,7 +257,7 @@ public sealed class ConsoleApp
     {
         var repositoriesWithOpenPullRequests = sortedRepositories
             .Where(static repository => repository.OpenPullRequestsCount.GetValueOrDefault() > 0)
-            .OrderByDescending(static repository => repository.OpenPullRequestsCount)
+            .OrderBy(static repository => repository.CreatedOn ?? DateTimeOffset.MaxValue)
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -216,17 +273,72 @@ public sealed class ConsoleApp
             .Expand()
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository name[/]"))
+            .AddColumn(new TableColumn("[green]Created on[/]"))
             .AddColumn(new TableColumn("[green]Open pull requests[/]"));
 
         for (var i = 0; i < repositoriesWithOpenPullRequests.Count; i++)
         {
             var repository = repositoriesWithOpenPullRequests[i];
+            var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
             var openPullRequests = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
                 Markup.Escape(repository.Name),
+                Markup.Escape(createdOn),
                 Markup.Escape(openPullRequests));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private void RenderPullRequestDetailsReportIfAny(IReadOnlyList<PullRequestDetail> pullRequestDetails)
+    {
+        if (!_options.PullRequestDetails.IsEnabled || pullRequestDetails.Count == 0)
+        {
+            return;
+        }
+
+        AnsiConsole.MarkupLine("\n[bold]Open PR details[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Double)
+            .Expand()
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Repository[/]"))
+            .AddColumn(new TableColumn("[green]PR[/]"))
+            .AddColumn(new TableColumn("[green]Opened on[/]"))
+            .AddColumn(new TableColumn("[green]Open for[/]"))
+            .AddColumn(new TableColumn("[green]TTFR[/]"))
+            .AddColumn(new TableColumn("[green]My Comments[/]"));
+
+        var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
+        var asOf = DateTimeOffset.UtcNow;
+
+        for (var i = 0; i < pullRequestDetails.Count; i++)
+        {
+            var detail = pullRequestDetails[i];
+            var openedOn = detail.OpenedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+            var openDuration = detail.GetOpenDuration(asOf);
+            var openFor = FormatDuration(openDuration);
+            var ttfr = detail.TimeToFirstResponse;
+            var isTtfrPendingOverdue = ttfr is null && openDuration > ttfrThreshold;
+            var ttfrCell = ttfr is not null
+                ? Markup.Escape(FormatDuration(ttfr.Value))
+                : isTtfrPendingOverdue
+                    ? "[red]ALERT[/]"
+                    : "-";
+            var discussion = detail.HasCurrentUserDiscussion ? "[yellow]Yes[/]" : "-";
+            var pullRequestText = $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}";
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(detail.RepositoryName),
+                Markup.Escape(pullRequestText),
+                Markup.Escape(openedOn),
+                Markup.Escape(openFor),
+                ttfrCell,
+                discussion);
         }
 
         AnsiConsole.Write(table);
@@ -276,16 +388,52 @@ public sealed class ConsoleApp
         AnsiConsole.Write(table);
     }
 
-    private void RenderPdfReport(List<Repository> repositories, FilterPattern filterPattern)
+    private void RenderPdfReport(
+        List<Repository> repositories,
+        IReadOnlyList<PullRequestDetail> pullRequestDetails,
+        FilterPattern filterPattern)
     {
         var reportData = new RepositoryPdfReportData(
             _options.Workspace,
             filterPattern.Phrase,
             _options.AbandonedMonthsThreshold,
+            _options.PullRequestDetails.TtfrThresholdHours,
             DateTimeOffset.Now,
-            repositories);
+            repositories,
+            pullRequestDetails);
 
         _pdfReportRenderer.RenderReport(reportData);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
+
+        if (safeDuration.TotalDays >= 1)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}d {1}h {2}m",
+                (int)safeDuration.TotalDays,
+                safeDuration.Hours,
+                safeDuration.Minutes);
+        }
+
+        if (safeDuration.TotalHours >= 1)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}h {1}m",
+                (int)safeDuration.TotalHours,
+                safeDuration.Minutes);
+        }
+
+        if (safeDuration.TotalMinutes >= 1)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "{0}m", (int)safeDuration.TotalMinutes);
+        }
+
+        return "<1m";
     }
 
 }

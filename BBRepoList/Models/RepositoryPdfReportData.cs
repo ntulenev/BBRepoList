@@ -11,23 +11,30 @@ public sealed class RepositoryPdfReportData
     /// <param name="workspace">Workspace name.</param>
     /// <param name="filterPhrase">Filter phrase.</param>
     /// <param name="abandonedMonthsThreshold">Abandoned repository threshold in months.</param>
+    /// <param name="ttfrThresholdHours">TTFR threshold in hours.</param>
     /// <param name="generatedAt">Generation timestamp.</param>
     /// <param name="repositories">Repositories included in report.</param>
+    /// <param name="pullRequestDetails">Open pull request details report rows.</param>
     public RepositoryPdfReportData(
         string workspace,
         string? filterPhrase,
         int abandonedMonthsThreshold,
+        int ttfrThresholdHours,
         DateTimeOffset generatedAt,
-        IReadOnlyList<Repository> repositories)
+        IReadOnlyList<Repository> repositories,
+        IReadOnlyList<PullRequestDetail> pullRequestDetails)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workspace);
         ArgumentNullException.ThrowIfNull(repositories);
+        ArgumentNullException.ThrowIfNull(pullRequestDetails);
 
         Workspace = workspace.Trim();
         FilterPhrase = string.IsNullOrWhiteSpace(filterPhrase) ? null : filterPhrase.Trim();
         AbandonedMonthsThreshold = abandonedMonthsThreshold;
+        TtfrThresholdHours = ttfrThresholdHours;
         GeneratedAt = generatedAt;
         Repositories = repositories;
+        PullRequestDetails = pullRequestDetails;
     }
 
     /// <summary>
@@ -54,4 +61,14 @@ public sealed class RepositoryPdfReportData
     /// Repositories included in report.
     /// </summary>
     public IReadOnlyList<Repository> Repositories { get; }
+
+    /// <summary>
+    /// TTFR threshold in hours.
+    /// </summary>
+    public int TtfrThresholdHours { get; }
+
+    /// <summary>
+    /// Open pull request details report rows.
+    /// </summary>
+    public IReadOnlyList<PullRequestDetail> PullRequestDetails { get; }
 }

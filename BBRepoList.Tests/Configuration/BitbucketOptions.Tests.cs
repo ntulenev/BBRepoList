@@ -31,6 +31,9 @@ public sealed class BitbucketOptionsTests
         options.Pdf.Should().NotBeNull();
         options.Pdf.Enabled.Should().BeTrue();
         options.Pdf.OutputPath.Should().Be("bbrepolist-report.pdf");
+        options.PullRequestDetails.Should().NotBeNull();
+        options.PullRequestDetails.IsEnabled.Should().BeFalse();
+        options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.OpenPullRequestsLoadThreshold.Should().Be(8);
         options.AbandonedMonthsThreshold.Should().Be(12);
@@ -349,6 +352,83 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("AbandonedMonthsThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when pull request details options are null")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenPullRequestDetailsOptionsAreNullReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = null!
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("PullRequestDetails"));
+    }
+
+    [Fact(DisplayName = "Validation fails when TTFR threshold is below one")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenTtfrThresholdHoursIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = true,
+                TtfrThresholdHours = 0
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("TtfrThresholdHours"));
+    }
+
+    [Fact(DisplayName = "Validation fails when TTFR threshold is above one hundred sixty eight")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenTtfrThresholdHoursIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = true,
+                TtfrThresholdHours = 169
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("TtfrThresholdHours"));
     }
 
     private static List<ValidationResult> Validate(BitbucketOptions options)

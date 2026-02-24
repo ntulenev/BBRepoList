@@ -195,6 +195,129 @@ public sealed class ConsoleAppTests
         output.Should().NotContain("Repositories with open pull requests");
     }
 
+    [Fact(DisplayName = "RunAsync renders open PR details report when enabled")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenPrDetailsAreEnabledRendersPrDetailsReport()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var detailsCalls = 0;
+        var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var prOpenedOn = new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero);
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+        api.Setup(a => a.GetOpenPullRequestDetailsAsync(
+                It.IsAny<Repository>(),
+                new BitbucketId("{uuid}"),
+                cts.Token))
+            .Callback(() => detailsCalls++)
+            .ReturnsAsync(
+            [
+                new PullRequestDetail(
+                    "Repo-1",
+                    "repo-1",
+                    repoCreatedOn,
+                    101,
+                    "Feature work",
+                    prOpenedOn,
+                    "{author}",
+                    prOpenedOn.AddHours(5),
+                    true)
+            ]);
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.IsAny<IProgress<RepoLoadProgress>>(),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new Repository("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
+            ]);
+
+        var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
+        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        detailsCalls.Should().Be(1);
+        output.Should().Contain("Open PR details");
+        output.Should().Contain("TTFR");
+        output.Should().NotContain("Alert");
+        output.Should().Contain("Yes");
+        output.Should().Contain("Feature");
+    }
+
+    [Fact(DisplayName = "RunAsync shows TTFR alert when first non-author response is missing over threshold")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenTtfrIsMissingOverThresholdShowsAlert()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var prOpenedOn = DateTimeOffset.UtcNow.AddHours(-5);
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+        api.Setup(a => a.GetOpenPullRequestDetailsAsync(
+                It.IsAny<Repository>(),
+                new BitbucketId("{uuid}"),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new PullRequestDetail(
+                    "Repo-1",
+                    "repo-1",
+                    repoCreatedOn,
+                    101,
+                    "No response yet",
+                    prOpenedOn,
+                    "{author}",
+                    firstNonAuthorActivityOn: null,
+                    hasCurrentUserDiscussion: false)
+            ]);
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.IsAny<IProgress<RepoLoadProgress>>(),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new Repository("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
+            ]);
+
+        var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
+        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        output.Should().Contain("ALERT");
+    }
+
     [Fact(DisplayName = "RunAsync renders abandoned repositories table when inactivity is above threshold")]
     [Trait("Category", "Unit")]
     public async Task RunAsyncWhenInactivityIsAboveThresholdRendersAbandonedRepositoriesTable()
@@ -284,7 +407,10 @@ public sealed class ConsoleAppTests
         output.Should().NotContain("Abandoned repositories");
     }
 
-    private static BitbucketOptions CreateOptions(int abandonedMonthsThreshold = 120)
+    private static BitbucketOptions CreateOptions(
+        int abandonedMonthsThreshold = 120,
+        bool prDetailsEnabled = false,
+        int ttfrThresholdHours = 4)
     {
         return new BitbucketOptions
         {
@@ -298,6 +424,11 @@ public sealed class ConsoleAppTests
             {
                 Enabled = true,
                 OutputPath = "bbrepolist-report.pdf"
+            },
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = prDetailsEnabled,
+                TtfrThresholdHours = ttfrThresholdHours
             },
             AbandonedMonthsThreshold = abandonedMonthsThreshold
         };
