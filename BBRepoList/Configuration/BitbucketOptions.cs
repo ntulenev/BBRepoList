@@ -6,6 +6,7 @@ namespace BBRepoList.Configuration;
 /// Configuration settings for Bitbucket API access.
 /// </summary>
 public sealed class BitbucketOptions
+    : IValidatableObject
 {
     /// <summary>
     /// Base Bitbucket API URL.
@@ -53,6 +54,12 @@ public sealed class BitbucketOptions
     public PdfOptions Pdf { get; init; } = new();
 
     /// <summary>
+    /// Pull request details report settings.
+    /// </summary>
+    [Required]
+    public PullRequestDetailsOptions PullRequestDetails { get; init; } = new();
+
+    /// <summary>
     /// Whether open pull request statistics should be loaded.
     /// </summary>
     public bool LoadOpenPullRequestsStatistics { get; init; } = true;
@@ -68,4 +75,27 @@ public sealed class BitbucketOptions
     /// </summary>
     [Range(1, 120)]
     public int AbandonedMonthsThreshold { get; init; } = 12;
+
+    /// <inheritdoc />
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        ArgumentNullException.ThrowIfNull(validationContext);
+
+        if (PullRequestDetails is null)
+        {
+            yield break;
+        }
+
+        var nestedResults = new List<ValidationResult>();
+        _ = Validator.TryValidateObject(
+            PullRequestDetails,
+            new ValidationContext(PullRequestDetails),
+            nestedResults,
+            validateAllProperties: true);
+
+        foreach (var result in nestedResults)
+        {
+            yield return result;
+        }
+    }
 }

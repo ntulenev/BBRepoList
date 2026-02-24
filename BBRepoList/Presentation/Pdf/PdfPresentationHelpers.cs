@@ -59,4 +59,17 @@ internal static class PdfPresentationHelpers
 
         return $"https://bitbucket.org/{encodedWorkspace}/{encodedSlug}/pull-requests/";
     }
+
+    public static string? BuildPullRequestUrl(string workspace, string? repositorySlug, int pullRequestId)
+    {
+        if (pullRequestId <= 0 || string.IsNullOrWhiteSpace(workspace) || string.IsNullOrWhiteSpace(repositorySlug))
+        {
+            return null;
+        }
+
+        var encodedWorkspace = Uri.EscapeDataString(workspace.Trim());
+        var encodedSlug = Uri.EscapeDataString(repositorySlug.Trim());
+
+        return $"https://bitbucket.org/{encodedWorkspace}/{encodedSlug}/pull-requests/{pullRequestId}";
+    }
 }
