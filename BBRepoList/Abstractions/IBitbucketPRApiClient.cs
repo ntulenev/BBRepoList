@@ -12,8 +12,7 @@ public interface IBitbucketPRApiClient
     /// </summary>
     /// <param name="repository">Repository to enrich.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Repository enriched with open pull requests count when resolved.</returns>
-    Task<Repository> PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken);
+    Task PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken);
 
     /// <summary>
     /// Loads open pull request details for repository report.

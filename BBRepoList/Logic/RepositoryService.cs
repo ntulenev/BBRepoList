@@ -63,8 +63,6 @@ public sealed class RepositoryService : IRepoService
             return matchedRepositories;
         }
 
-        var enrichedRepositories = new Repository[matchedRepositories.Count];
-
         progress?.Report(new RepoLoadProgress(
             seen,
             matched,
@@ -83,10 +81,9 @@ public sealed class RepositoryService : IRepoService
             },
             async (index, token) =>
             {
-                var enrichedRepository = await _prApi
+                await _prApi
                     .PopulateOpenPullRequestCountAsync(matchedRepositories[index], token)
                     .ConfigureAwait(false);
-                enrichedRepositories[index] = enrichedRepository;
 
                 var currentLoaded = Interlocked.Increment(ref prStatisticsLoaded);
                 progress?.Report(new RepoLoadProgress(
@@ -97,7 +94,7 @@ public sealed class RepositoryService : IRepoService
                     pullRequestStatisticsTotal: matchedRepositories.Count));
             }).ConfigureAwait(false);
 
-        return enrichedRepositories;
+        return matchedRepositories;
     }
 
     private readonly IBitbucketRepoApiClient _api;

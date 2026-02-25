@@ -91,9 +91,12 @@ public sealed class RepositoryServiceTests
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
         prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
-            .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
-            .ReturnsAsync((Repository repository, CancellationToken _) =>
-                new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 1, repository.Slug));
+            .Callback<Repository, CancellationToken>((repository, _) =>
+            {
+                enrichCalls++;
+                repository.UpdateOpenPullRequestsCount(1);
+            })
+            .Returns(Task.CompletedTask);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -159,9 +162,12 @@ public sealed class RepositoryServiceTests
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
         prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
-            .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
-            .ReturnsAsync((Repository repository, CancellationToken _) =>
-                new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 2, repository.Slug));
+            .Callback<Repository, CancellationToken>((repository, _) =>
+            {
+                enrichCalls++;
+                repository.UpdateOpenPullRequestsCount(2);
+            })
+            .Returns(Task.CompletedTask);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -224,7 +230,7 @@ public sealed class RepositoryServiceTests
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
         prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
-            .ReturnsAsync((Repository repository, CancellationToken _) => repository);
+            .Returns(Task.CompletedTask);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
@@ -323,12 +329,7 @@ public sealed class RepositoryServiceTests
                 try
                 {
                     await Task.Delay(40, token);
-                    return new Repository(
-                        repository.Name,
-                        repository.CreatedOn,
-                        repository.LastUpdatedOn,
-                        3,
-                        repository.Slug);
+                    repository.UpdateOpenPullRequestsCount(3);
                 }
                 finally
                 {

@@ -71,12 +71,12 @@ public sealed class BitbucketPRApiClientTests
         var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
 
         // Act
-        var enriched = await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
+        await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
 
         // Assert
         sendCalls.Should().Be(1);
-        enriched.Name.Should().Be("Repo-1");
-        enriched.OpenPullRequestsCount.Should().Be(9);
+        repository.Name.Should().Be("Repo-1");
+        repository.OpenPullRequestsCount.Should().Be(9);
     }
 
     [Fact(DisplayName = "PopulateOpenPullRequestCountAsync keeps repository when pull requests count lookup fails")]
@@ -100,12 +100,12 @@ public sealed class BitbucketPRApiClientTests
         var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
 
         // Act
-        var enriched = await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
+        await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
 
         // Assert
         sendCalls.Should().Be(1);
-        enriched.Name.Should().Be("Repo-1");
-        enriched.OpenPullRequestsCount.Should().BeNull();
+        repository.Name.Should().Be("Repo-1");
+        repository.OpenPullRequestsCount.Should().BeNull();
     }
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns mapped open pull request details")]

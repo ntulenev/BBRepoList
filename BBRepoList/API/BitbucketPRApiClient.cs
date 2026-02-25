@@ -30,34 +30,30 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     }
 
     /// <inheritdoc />
-    public async Task<Repository> PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken)
+    public async Task PopulateOpenPullRequestCountAsync(Repository repository, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        if (repository.OpenPullRequestsCount is not null || string.IsNullOrWhiteSpace(repository.Slug))
+        if (!repository.CanPopulateOpenPullRequestsCount)
         {
-            return repository;
+            return;
         }
+
+        var repositorySlug = repository.Slug!;
 
         try
         {
-            var escapedSlug = Uri.EscapeDataString(repository.Slug);
+            var escapedSlug = Uri.EscapeDataString(repositorySlug);
             var url = new Uri(
                 $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen=1&fields=size",
                 UriKind.Relative);
 
             var summary = await _transport.GetAsync<PullRequestPageSummaryDto>(url, cancellationToken).ConfigureAwait(false);
-
-            return new Repository(
-                repository.Name,
-                repository.CreatedOn,
-                repository.LastUpdatedOn,
-                summary?.Size,
-                repository.Slug);
+            repository.UpdateOpenPullRequestsCount(summary?.Size);
         }
         catch (HttpRequestException)
         {
-            return repository;
+            return;
         }
     }
 

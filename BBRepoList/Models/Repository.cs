@@ -54,7 +54,20 @@ public sealed class Repository
     /// <summary>
     /// Open pull requests count.
     /// </summary>
-    public int? OpenPullRequestsCount { get; }
+    public int? OpenPullRequestsCount { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether open pull requests count can be populated.
+    /// </summary>
+    public bool CanPopulateOpenPullRequestsCount =>
+        OpenPullRequestsCount is null && !string.IsNullOrWhiteSpace(Slug);
+
+    /// <summary>
+    /// Updates open pull requests count.
+    /// </summary>
+    /// <param name="openPullRequestsCount">Open pull requests count value.</param>
+    public void UpdateOpenPullRequestsCount(int? openPullRequestsCount) =>
+        OpenPullRequestsCount = openPullRequestsCount;
 
     /// <summary>
     /// Repository slug in workspace scope.

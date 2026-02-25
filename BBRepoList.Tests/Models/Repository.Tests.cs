@@ -121,6 +121,53 @@ public sealed class RepositoryTests
         repo.OpenPullRequestsCount.Should().Be(openPullRequestsCount);
     }
 
+    [Fact(DisplayName = "UpdateOpenPullRequestsCount updates open pull requests count")]
+    [Trait("Category", "Unit")]
+    public void UpdateOpenPullRequestsCountWhenCalledUpdatesOpenPullRequestsCount()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: null, "repo-1");
+
+        // Act
+        repo.UpdateOpenPullRequestsCount(5);
+
+        // Assert
+        repo.OpenPullRequestsCount.Should().Be(5);
+    }
+
+    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is true when slug is provided and count is null")]
+    [Trait("Category", "Unit")]
+    public void CanPopulateOpenPullRequestsCountWhenSlugIsProvidedAndCountIsNullReturnsTrue()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: null, "repo-1");
+
+        // Assert
+        repo.CanPopulateOpenPullRequestsCount.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is false when count is already set")]
+    [Trait("Category", "Unit")]
+    public void CanPopulateOpenPullRequestsCountWhenCountIsSetReturnsFalse()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: 2, "repo-1");
+
+        // Assert
+        repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is false when slug is missing")]
+    [Trait("Category", "Unit")]
+    public void CanPopulateOpenPullRequestsCountWhenSlugIsMissingReturnsFalse()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1");
+
+        // Assert
+        repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
+    }
+
     [Fact(DisplayName = "Constructor marks inactivity timing as calculable when created and updated dates are provided")]
     [Trait("Category", "Unit")]
     public void ConstructorWhenCreatedAndUpdatedDatesAreProvidedMarksInactivityTimingAsCalculable()
@@ -182,6 +229,7 @@ public sealed class RepositoryTests
         repo.LastUpdatedOn.Should().BeNull();
         repo.OpenPullRequestsCount.Should().BeNull();
         repo.Slug.Should().BeNull();
+        repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
         repo.CanCalculateInactivityTiming.Should().BeFalse();
         repo.MonthsWithoutActivity.Should().Be(0);
     }
