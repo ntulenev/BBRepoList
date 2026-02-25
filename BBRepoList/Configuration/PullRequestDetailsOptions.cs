@@ -17,4 +17,10 @@ public sealed class PullRequestDetailsOptions
     /// </summary>
     [Range(1, 168)]
     public int TtfrThresholdHours { get; init; } = 4;
+
+    /// <summary>
+    /// Gets or sets maximum number of concurrent repository requests for pull request details loading.
+    /// </summary>
+    [Range(1, 64)]
+    public int LoadThreshold { get; init; } = 8;
 }

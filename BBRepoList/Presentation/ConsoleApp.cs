@@ -188,22 +188,47 @@ public sealed class ConsoleApp
         }
 
         var pullRequestDetails = new List<PullRequestDetail>();
+        var detailsByRepository = new IReadOnlyList<PullRequestDetail>?[repositoriesToInspect.Count];
+        var loadedRepositories = 0;
+        var statusSync = new object();
 
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Loading Open PR details...", async ctx =>
             {
-                for (var index = 0; index < repositoriesToInspect.Count; index++)
+                await Parallel.ForEachAsync(
+                    Enumerable.Range(0, repositoriesToInspect.Count),
+                    new ParallelOptions
+                    {
+                        MaxDegreeOfParallelism = _options.PullRequestDetails.LoadThreshold,
+                        CancellationToken = cancellationToken
+                    },
+                    async (index, token) =>
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        var repository = repositoriesToInspect[index];
+                        var details = await _bitbucketApiClient
+                            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cancellationToken)
+                            .ConfigureAwait(false);
+
+                        detailsByRepository[index] = details;
+
+                        var currentLoaded = Interlocked.Increment(ref loadedRepositories);
+                        lock (statusSync)
+                        {
+                            _ = ctx.Status(
+                                $"Loading Open PR details... {currentLoaded}/{repositoriesToInspect.Count} repositories");
+                        }
+                    }).ConfigureAwait(false);
+
+                for (var index = 0; index < detailsByRepository.Length; index++)
                 {
-                    var repository = repositoriesToInspect[index];
-                    _ = ctx.Status($"Loading Open PR details... {index + 1}/{repositoriesToInspect.Count} repositories");
-
-                    var details = await _bitbucketApiClient
-                        .GetOpenPullRequestDetailsAsync(repository, currentUserId, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    pullRequestDetails.AddRange(details);
+                    if (detailsByRepository[index] is { } details)
+                    {
+                        pullRequestDetails.AddRange(details);
+                    }
                 }
 
                 _ = ctx.Status($"Loaded Open PR details for {repositoriesToInspect.Count} repositories.");

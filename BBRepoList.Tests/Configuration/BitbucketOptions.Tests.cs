@@ -34,6 +34,7 @@ public sealed class BitbucketOptionsTests
         options.PullRequestDetails.Should().NotBeNull();
         options.PullRequestDetails.IsEnabled.Should().BeFalse();
         options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
+        options.PullRequestDetails.LoadThreshold.Should().Be(8);
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.OpenPullRequestsLoadThreshold.Should().Be(8);
         options.AbandonedMonthsThreshold.Should().Be(12);
@@ -430,6 +431,62 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("TtfrThresholdHours"));
+    }
+
+    [Fact(DisplayName = "Validation fails when pull request details load threshold is below one")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenPullRequestDetailsLoadThresholdIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = true,
+                TtfrThresholdHours = 4,
+                LoadThreshold = 0
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("LoadThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when pull request details load threshold is above sixty four")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenPullRequestDetailsLoadThresholdIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = true,
+                TtfrThresholdHours = 4,
+                LoadThreshold = 65
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("LoadThreshold"));
     }
 
     private static List<ValidationResult> Validate(BitbucketOptions options)

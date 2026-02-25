@@ -38,7 +38,8 @@ Example:
     "OpenPullRequestsLoadThreshold": 4,
     "PullRequestDetails": {
       "IsEnabled": false,
-      "TtfrThresholdHours": 4
+      "TtfrThresholdHours": 4,
+      "LoadThreshold": 4
     },
     "AbandonedMonthsThreshold": 12,
     "LoadAbandonedRepositoriesStatistics": true
@@ -59,6 +60,7 @@ Settings:
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.
 - `PullRequestDetails.TtfrThresholdHours`: TTFR threshold in hours. When no first non-author response exists and open PR age exceeds this value, TTFR cell shows red `ALERT`. Default: `4`.
+- `PullRequestDetails.LoadThreshold`: Max number of concurrent repository requests when loading open PR details report. Default: `8`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 
