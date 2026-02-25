@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+using BBRepoList.Models;
+
 namespace BBRepoList.Configuration;
 
 /// <summary>
@@ -80,6 +82,12 @@ public sealed class BitbucketOptions
     /// Whether abandoned repositories statistics should be loaded.
     /// </summary>
     public bool LoadAbandonedRepositoriesStatistics { get; init; } = true;
+
+    /// <summary>
+    /// Default repository name search mode.
+    /// </summary>
+    [EnumDataType(typeof(RepositorySearchMode))]
+    public RepositorySearchMode RepositorySearchMode { get; init; } = RepositorySearchMode.Contains;
 
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

@@ -52,7 +52,7 @@ public sealed class ConsoleApp
             return;
         }
 
-        var filterPattern = await ReadFilterPatternAsync(cancellationToken).ConfigureAwait(false);
+        var filterPattern = await ReadFilterPatternAsync(_options.RepositorySearchMode, cancellationToken).ConfigureAwait(false);
         ShowFilterInfo(filterPattern);
 
         var repositories = await LoadRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false);
@@ -112,25 +112,31 @@ public sealed class ConsoleApp
         AnsiConsole.MarkupLine($"[grey]UUID:[/] {Markup.Escape(uuid)}\n");
     }
 
-    private static async Task<FilterPattern> ReadFilterPatternAsync(CancellationToken cancellationToken)
+    private static async Task<FilterPattern> ReadFilterPatternAsync(
+        RepositorySearchMode defaultSearchMode,
+        CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine("[grey]Search by repository name (Contains, case-insensitive). Empty = all.[/]\n");
+        AnsiConsole.MarkupLine(
+            $"[grey]Search by repository name. Mode from settings: {Markup.Escape(defaultSearchMode.ToString())}. Empty phrase = all.[/]\n");
 
         var searchPhrase = (await AnsiConsole.PromptAsync(
             new TextPrompt<string>("Search phrase:").AllowEmpty(),
             cancellationToken).ConfigureAwait(false) ?? string.Empty).Trim();
 
-        return new FilterPattern(searchPhrase);
+        return new FilterPattern(searchPhrase, defaultSearchMode);
     }
 
     private static void ShowFilterInfo(FilterPattern filterPattern)
     {
         AnsiConsole.MarkupLine(
             filterPattern.HasFilter
-                ? $"[grey]Filter:[/] contains [yellow]\"{Markup.Escape(filterPattern.Phrase!)}\"[/]\n"
+                ? $"[grey]Filter:[/] {GetSearchModeText(filterPattern.SearchMode)} [yellow]\"{Markup.Escape(filterPattern.Phrase!)}\"[/]\n"
                 : "[grey]Filter:[/] (none) - showing all repositories\n"
         );
     }
+
+    private static string GetSearchModeText(RepositorySearchMode searchMode) =>
+        searchMode == RepositorySearchMode.StartWith ? "starts with" : "contains";
 
     private async Task<IReadOnlyList<Repository>> LoadRepositoriesAsync(FilterPattern filterPattern, CancellationToken cancellationToken)
     {

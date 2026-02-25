@@ -36,6 +36,36 @@ public sealed class FilterPatternTests
         result.Should().BeTrue();
     }
 
+    [Fact(DisplayName = "Filter matches repository name by StartWith mode case-insensitively")]
+    [Trait("Category", "Unit")]
+    public void FilterWhenSearchModeIsStartWithAndPhraseMatchesPrefixReturnsTrue()
+    {
+        // Arrange
+        var pattern = new FilterPattern("my", RepositorySearchMode.StartWith);
+        var repository = new Repository("My-App-Repo");
+
+        // Act
+        var result = pattern.Filter(repository);
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "Filter returns false when StartWith mode phrase matches only in middle")]
+    [Trait("Category", "Unit")]
+    public void FilterWhenSearchModeIsStartWithAndPhraseMatchesMiddleReturnsFalse()
+    {
+        // Arrange
+        var pattern = new FilterPattern("app", RepositorySearchMode.StartWith);
+        var repository = new Repository("My-App-Repo");
+
+        // Act
+        var result = pattern.Filter(repository);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
     [Fact(DisplayName = "Filter returns false when phrase does not match")]
     [Trait("Category", "Unit")]
     public void FilterWhenPhraseDoesNotMatchReturnsFalse()

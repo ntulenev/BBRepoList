@@ -3,6 +3,7 @@ using FluentAssertions;
 using System.ComponentModel.DataAnnotations;
 
 using BBRepoList.Configuration;
+using BBRepoList.Models;
 
 namespace BBRepoList.Tests.Configuration;
 
@@ -39,6 +40,7 @@ public sealed class BitbucketOptionsTests
         options.OpenPullRequestsLoadThreshold.Should().Be(8);
         options.AbandonedMonthsThreshold.Should().Be(12);
         options.LoadAbandonedRepositoriesStatistics.Should().BeTrue();
+        options.RepositorySearchMode.Should().Be(RepositorySearchMode.Contains);
     }
 
     [Fact(DisplayName = "Validation fails when base url is missing")]
@@ -487,6 +489,29 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("LoadThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when repository search mode is out of enum range")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenRepositorySearchModeIsOutOfRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            RepositorySearchMode = (RepositorySearchMode)999
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("RepositorySearchMode"));
     }
 
     private static List<ValidationResult> Validate(BitbucketOptions options)

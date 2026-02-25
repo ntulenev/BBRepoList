@@ -156,6 +156,44 @@ public sealed class ConsoleAppTests
         output.Should().Contain("2");
     }
 
+    [Fact(DisplayName = "RunAsync uses configured repository search mode from options")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenConfiguredSearchModeIsStartWithPassesStartWithFilterToService()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repoCalls = 0;
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo", RepositorySearchMode.StartWith),
+                It.IsAny<IProgress<RepoLoadProgress>>(),
+                cts.Token))
+            .Callback(() => repoCalls++)
+            .ReturnsAsync([]);
+
+        var options = Options.Create(CreateOptions(repositorySearchMode: RepositorySearchMode.StartWith));
+        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        repoCalls.Should().Be(1);
+    }
+
     [Fact(DisplayName = "RunAsync does not render open pull requests table when there are no open pull requests")]
     [Trait("Category", "Unit")]
     public async Task RunAsyncWhenNoRepositoriesHaveOpenPullRequestsDoesNotRenderOpenPullRequestsTable()
@@ -456,7 +494,8 @@ public sealed class ConsoleAppTests
         int abandonedMonthsThreshold = 120,
         bool loadAbandonedRepositoriesStatistics = true,
         bool prDetailsEnabled = false,
-        int ttfrThresholdHours = 4)
+        int ttfrThresholdHours = 4,
+        RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains)
     {
         return new BitbucketOptions
         {
@@ -477,7 +516,8 @@ public sealed class ConsoleAppTests
                 TtfrThresholdHours = ttfrThresholdHours
             },
             AbandonedMonthsThreshold = abandonedMonthsThreshold,
-            LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics
+            LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics,
+            RepositorySearchMode = repositorySearchMode
         };
     }
 

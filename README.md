@@ -6,7 +6,7 @@
 BBRepoList is a lightweight console utility for listing repositories in a Bitbucket workspace.
 
 It supports:
-- Name filtering (`contains`, case-insensitive)
+- Name filtering (`Contains` or `StartWith`, case-insensitive; `Contains` is default)
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
 - Optional open PR details report (`TTFR`, `Open for`, my comments marker)
@@ -42,7 +42,8 @@ Example:
       "LoadThreshold": 4
     },
     "AbandonedMonthsThreshold": 12,
-    "LoadAbandonedRepositoriesStatistics": true
+    "LoadAbandonedRepositoriesStatistics": true,
+    "RepositorySearchMode": "Contains"
   }
 }
 ```
@@ -63,6 +64,7 @@ Settings:
 - `PullRequestDetails.LoadThreshold`: Max number of concurrent repository requests when loading open PR details report. Default: `8`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
+- `RepositorySearchMode`: Repository name search mode from configuration. Supported: `Contains`, `StartWith`. Default: `Contains`.
 
 ## Output
 The app renders:
