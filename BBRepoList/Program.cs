@@ -27,16 +27,21 @@ builder.Services
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+builder.Services.AddTransient<IBitbucketAuthApiClient, BitbucketAuthApiClient>();
+
 builder.Services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, http) =>
 {
     var settings = sp.GetRequiredService<IOptions<BitbucketOptions>>().Value;
+    var authApi = sp.GetRequiredService<IBitbucketAuthApiClient>();
+
     http.BaseAddress = new Uri(settings.BaseUrl.ToString().TrimEnd('/') + "/");
-    http.DefaultRequestHeaders.Authorization = BitbucketApiClient.BuildAuthHeader(settings.AuthEmail, settings.AuthApiToken);
+    http.DefaultRequestHeaders.Authorization = authApi.BuildAuthHeader(settings.AuthEmail, settings.AuthApiToken);
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
 builder.Services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
-builder.Services.AddTransient<IBitbucketApiClient, BitbucketApiClient>();
+builder.Services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
+builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
 builder.Services.AddTransient<IRepoService, RepositoryService>();
 builder.Services.AddTransient<IPdfContentComposer, PdfContentComposer>();
 builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
@@ -47,3 +52,4 @@ using var host = builder.Build();
 
 var app = host.Services.GetRequiredService<ConsoleApp>();
 await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+

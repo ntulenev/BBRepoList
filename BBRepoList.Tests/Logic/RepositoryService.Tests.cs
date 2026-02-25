@@ -20,11 +20,29 @@ public sealed class RepositoryServiceTests
     public void ConstructorWhenApiIsNullThrowsArgumentNullException()
     {
         // Arrange
-        IBitbucketApiClient api = null!;
+        IBitbucketRepoApiClient api = null!;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new RepositoryService(api, options);
+        Action act = () => _ = new RepositoryService(api, prApi, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when PR api is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenPrApiIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict).Object;
+        IBitbucketPRApiClient prApi = null!;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new RepositoryService(api, prApi, options);
 
         // Assert
         act.Should()
@@ -36,11 +54,12 @@ public sealed class RepositoryServiceTests
     public void ConstructorWhenOptionsAreNullThrowsArgumentNullException()
     {
         // Arrange
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict).Object;
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict).Object;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new RepositoryService(api, options);
+        Action act = () => _ = new RepositoryService(api, prApi, options);
 
         // Assert
         act.Should()
@@ -65,11 +84,13 @@ public sealed class RepositoryServiceTests
              }
         };
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) =>
                 new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 1, repository.Slug));
@@ -77,7 +98,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
@@ -131,11 +152,13 @@ public sealed class RepositoryServiceTests
             }
         };
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) =>
                 new Repository(repository.Name, repository.CreatedOn, repository.LastUpdatedOn, 2, repository.Slug));
@@ -143,7 +166,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("app"), progress, cts.Token);
@@ -193,18 +216,20 @@ public sealed class RepositoryServiceTests
             new[]{new Repository("app-two"), new Repository("Other") }
         };
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .ReturnsAsync((Repository repository, CancellationToken _) => repository);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("XXX"), progress, cts.Token);
@@ -242,15 +267,16 @@ public sealed class RepositoryServiceTests
             }
         };
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Callback(() => apiCalls++)
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
 
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: false)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: false)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
@@ -283,10 +309,12 @@ public sealed class RepositoryServiceTests
         var inFlight = 0;
         var maxInFlight = 0;
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         api.Setup(m => m.GetRepositoriesAsync(cts.Token))
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
-        api.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
             .Returns<Repository, CancellationToken>(async (repository, token) =>
             {
                 var currentInFlight = Interlocked.Increment(ref inFlight);
@@ -310,6 +338,7 @@ public sealed class RepositoryServiceTests
 
         var service = new RepositoryService(
             api.Object,
+            prApi.Object,
             Options.Create(CreateOptions(
                 loadOpenPullRequestsStatistics: true,
                 openPullRequestsLoadThreshold: 2)));
@@ -375,3 +404,4 @@ public sealed class RepositoryServiceTests
         }
     }
 }
+

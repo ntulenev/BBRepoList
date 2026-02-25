@@ -18,21 +18,25 @@ public sealed class ConsoleApp
     /// <summary>
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
-    /// <param name="bitbucketApiClient">Bitbucket API client.</param>
+    /// <param name="bitbucketAuthApiClient">Bitbucket auth API client.</param>
+    /// <param name="bitbucketPrApiClient">Bitbucket pull request API client.</param>
     /// <param name="pdfReportRenderer">PDF report renderer.</param>
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
-    public ConsoleApp(IBitbucketApiClient bitbucketApiClient,
+    public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
+                      IBitbucketPRApiClient bitbucketPrApiClient,
                       IPdfReportRenderer pdfReportRenderer,
                       IRepoService repoService,
                       IOptions<BitbucketOptions> options)
     {
-        ArgumentNullException.ThrowIfNull(bitbucketApiClient);
+        ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
+        ArgumentNullException.ThrowIfNull(bitbucketPrApiClient);
         ArgumentNullException.ThrowIfNull(pdfReportRenderer);
         ArgumentNullException.ThrowIfNull(repoService);
         ArgumentNullException.ThrowIfNull(options);
 
-        _bitbucketApiClient = bitbucketApiClient;
+        _bitbucketAuthApiClient = bitbucketAuthApiClient;
+        _bitbucketPrApiClient = bitbucketPrApiClient;
         _pdfReportRenderer = pdfReportRenderer;
         _repoService = repoService;
         _options = options.Value;
@@ -71,7 +75,8 @@ public sealed class ConsoleApp
         ShowDone();
     }
 
-    private readonly IBitbucketApiClient _bitbucketApiClient;
+    private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
+    private readonly IBitbucketPRApiClient _bitbucketPrApiClient;
     private readonly IPdfReportRenderer _pdfReportRenderer;
     private readonly IRepoService _repoService;
     private readonly BitbucketOptions _options;
@@ -91,7 +96,7 @@ public sealed class ConsoleApp
             {
                 try
                 {
-                    authenticatedUser = await _bitbucketApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
+                    authenticatedUser = await _bitbucketAuthApiClient.AuthSelfCheckAsync(cancellationToken).ConfigureAwait(false);
                     ShowAuthenticatedUser(authenticatedUser);
                 }
                 catch (HttpRequestException ex)
@@ -215,7 +220,7 @@ public sealed class ConsoleApp
                         token.ThrowIfCancellationRequested();
 
                         var repository = repositoriesToInspect[index];
-                        var details = await _bitbucketApiClient
+                        var details = await _bitbucketPrApiClient
                             .GetOpenPullRequestDetailsAsync(repository, currentUserId, cancellationToken)
                             .ConfigureAwait(false);
 

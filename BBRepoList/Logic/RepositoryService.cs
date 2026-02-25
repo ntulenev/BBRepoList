@@ -15,13 +15,16 @@ public sealed class RepositoryService : IRepoService
     /// Initializes a new instance of the <see cref="RepositoryService"/> class.
     /// </summary>
     /// <param name="api">Bitbucket API client.</param>
+    /// <param name="prApi">Bitbucket pull request API client.</param>
     /// <param name="options">Bitbucket configuration options.</param>
-    public RepositoryService(IBitbucketApiClient api, IOptions<BitbucketOptions> options)
+    public RepositoryService(IBitbucketRepoApiClient api, IBitbucketPRApiClient prApi, IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(api);
+        ArgumentNullException.ThrowIfNull(prApi);
         ArgumentNullException.ThrowIfNull(options);
 
         _api = api;
+        _prApi = prApi;
         _loadOpenPullRequestsStatistics = options.Value.LoadOpenPullRequestsStatistics;
         _openPullRequestsLoadThreshold = options.Value.OpenPullRequestsLoadThreshold;
     }
@@ -80,7 +83,7 @@ public sealed class RepositoryService : IRepoService
             },
             async (index, token) =>
             {
-                var enrichedRepository = await _api
+                var enrichedRepository = await _prApi
                     .PopulateOpenPullRequestCountAsync(matchedRepositories[index], token)
                     .ConfigureAwait(false);
                 enrichedRepositories[index] = enrichedRepository;
@@ -97,7 +100,9 @@ public sealed class RepositoryService : IRepoService
         return enrichedRepositories;
     }
 
-    private readonly IBitbucketApiClient _api;
+    private readonly IBitbucketRepoApiClient _api;
+    private readonly IBitbucketPRApiClient _prApi;
     private readonly bool _loadOpenPullRequestsStatistics;
     private readonly int _openPullRequestsLoadThreshold;
 }
+

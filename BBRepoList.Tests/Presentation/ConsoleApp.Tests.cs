@@ -23,13 +23,33 @@ public sealed class ConsoleAppTests
     public void ConstructorWhenApiClientIsNullThrowsArgumentNullException()
     {
         // Arrange
-        IBitbucketApiClient api = null!;
+        IBitbucketAuthApiClient api = null!;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, prApi, pdfReportRenderer, repoService, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when PR api client is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenPrApiClientIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        IBitbucketPRApiClient prApi = null!;
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new ConsoleApp(api, prApi, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -41,13 +61,14 @@ public sealed class ConsoleAppTests
     public void ConstructorWhenPdfReportRendererIsNullThrowsArgumentNullException()
     {
         // Arrange
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict).Object;
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         IPdfReportRenderer pdfReportRenderer = null!;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, prApi, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -59,13 +80,14 @@ public sealed class ConsoleAppTests
     public void ConstructorWhenRepoServiceIsNullThrowsArgumentNullException()
     {
         // Arrange
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict).Object;
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         IRepoService repoService = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, prApi, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -77,13 +99,14 @@ public sealed class ConsoleAppTests
     public void ConstructorWhenOptionsAreNullThrowsArgumentNullException()
     {
         // Arrange
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict).Object;
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, prApi, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -104,7 +127,7 @@ public sealed class ConsoleAppTests
         var repo1UpdatedOn = new DateTimeOffset(2025, 2, 15, 0, 0, 0, TimeSpan.Zero);
         var repo2UpdatedOn = new DateTimeOffset(2025, 1, 20, 0, 0, 0, TimeSpan.Zero);
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .Callback(() => authCalls++)
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
@@ -130,7 +153,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -164,7 +187,7 @@ public sealed class ConsoleAppTests
         using var cts = new CancellationTokenSource();
         var repoCalls = 0;
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
@@ -180,7 +203,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchMode: RepositorySearchMode.StartWith));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         await RunWithTestConsoleAsync(async console =>
         {
@@ -200,7 +223,7 @@ public sealed class ConsoleAppTests
     {
         // Arrange
         using var cts = new CancellationTokenSource();
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
@@ -219,7 +242,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -243,10 +266,11 @@ public sealed class ConsoleAppTests
         var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var prOpenedOn = new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero);
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
-        api.Setup(a => a.GetOpenPullRequestDetailsAsync(
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(a => a.GetOpenPullRequestDetailsAsync(
                 It.IsAny<Repository>(),
                 new BitbucketId("{uuid}"),
                 cts.Token))
@@ -279,7 +303,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, prApi.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -307,10 +331,11 @@ public sealed class ConsoleAppTests
         var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var prOpenedOn = DateTimeOffset.UtcNow.AddHours(-5);
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
-        api.Setup(a => a.GetOpenPullRequestDetailsAsync(
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(a => a.GetOpenPullRequestDetailsAsync(
                 It.IsAny<Repository>(),
                 new BitbucketId("{uuid}"),
                 cts.Token))
@@ -342,7 +367,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, prApi.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -367,7 +392,7 @@ public sealed class ConsoleAppTests
         var oldLastActivityOn = now.AddMonths(-16);
         var oldInactiveMonths = CalculateFullMonthsBetween(oldLastActivityOn, now);
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
@@ -386,7 +411,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -412,7 +437,7 @@ public sealed class ConsoleAppTests
         using var cts = new CancellationTokenSource();
         var now = DateTimeOffset.UtcNow;
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
@@ -431,7 +456,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -455,7 +480,7 @@ public sealed class ConsoleAppTests
         var oldCreatedOn = now.AddMonths(-30);
         var oldLastActivityOn = now.AddMonths(-16);
 
-        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
@@ -476,7 +501,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions(
             abandonedMonthsThreshold: 12,
             loadAbandonedRepositoriesStatistics: false));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, new Mock<IBitbucketPRApiClient>(MockBehavior.Strict).Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -554,3 +579,5 @@ public sealed class ConsoleAppTests
         }
     }
 }
+
+
