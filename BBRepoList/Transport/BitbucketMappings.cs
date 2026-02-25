@@ -14,11 +14,13 @@ public static class BitbucketMappings
     public static Repository ToDomain(this RepositoryDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
-        return new Repository(dto.Name ?? string.Empty,
+
+        var repository = new Repository(
+            dto.Name ?? string.Empty,
             dto.CreatedOn,
             dto.UpdatedOn,
-            dto.OpenPullRequestsCount,
             dto.Slug);
+        return repository;
     }
 
     /// <summary>

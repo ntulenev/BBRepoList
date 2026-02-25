@@ -44,7 +44,7 @@ public sealed class BitbucketMappingsTests
         // Arrange
         var createdOn = new DateTimeOffset(2025, 2, 3, 12, 30, 0, TimeSpan.Zero);
         var updatedOn = new DateTimeOffset(2025, 2, 5, 9, 15, 0, TimeSpan.Zero);
-        var dto = new RepositoryDto("Repo-1", createdOn, updatedOn, "repo-1", 6);
+        var dto = new RepositoryDto("Repo-1", createdOn, updatedOn, "repo-1");
 
         // Act
         var repository = dto.ToDomain();
@@ -54,7 +54,7 @@ public sealed class BitbucketMappingsTests
         repository.Name.Should().Be("Repo-1");
         repository.CreatedOn.Should().Be(createdOn);
         repository.LastUpdatedOn.Should().Be(updatedOn);
-        repository.OpenPullRequestsCount.Should().Be(6);
+        repository.OpenPullRequestsCount.Should().Be(0);
         repository.Slug.Should().Be("repo-1");
     }
 

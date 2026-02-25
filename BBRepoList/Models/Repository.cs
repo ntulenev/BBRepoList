@@ -11,13 +11,11 @@ public sealed class Repository
     /// <param name="name">Repository display name.</param>
     /// <param name="createdOn">Repository creation date/time.</param>
     /// <param name="lastUpdatedOn">Repository last update date/time.</param>
-    /// <param name="openPullRequestsCount">Open pull requests count.</param>
     /// <param name="slug">Repository slug in workspace scope.</param>
     public Repository(
         string name,
         DateTimeOffset? createdOn = null,
         DateTimeOffset? lastUpdatedOn = null,
-        int? openPullRequestsCount = null,
         string? slug = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -28,7 +26,6 @@ public sealed class Repository
         Name = name.Trim();
         CreatedOn = createdOn;
         LastUpdatedOn = lastUpdatedOn;
-        OpenPullRequestsCount = openPullRequestsCount;
         Slug = string.IsNullOrWhiteSpace(slug) ? null : slug.Trim();
         CanCalculateInactivityTiming = createdOn is not null && lastUpdatedOn is not null;
         MonthsWithoutActivity = CanCalculateInactivityTiming
@@ -54,20 +51,35 @@ public sealed class Repository
     /// <summary>
     /// Open pull requests count.
     /// </summary>
-    public int? OpenPullRequestsCount { get; private set; }
+    public int OpenPullRequestsCount { get; private set; }
 
     /// <summary>
     /// Gets a value indicating whether open pull requests count can be populated.
     /// </summary>
-    public bool CanPopulateOpenPullRequestsCount =>
-        OpenPullRequestsCount is null && !string.IsNullOrWhiteSpace(Slug);
+    public bool CanPopulateOpenPullRequestsCount => !string.IsNullOrWhiteSpace(Slug);
+
+    /// <summary>
+    /// Gets a value indicating whether open pull request details can be loaded.
+    /// </summary>
+    public bool CanLoadOpenPullRequestDetails =>
+        !string.IsNullOrWhiteSpace(Slug) && OpenPullRequestsCount != 0;
 
     /// <summary>
     /// Updates open pull requests count.
     /// </summary>
     /// <param name="openPullRequestsCount">Open pull requests count value.</param>
-    public void UpdateOpenPullRequestsCount(int? openPullRequestsCount) =>
+    public void UpdateOpenPullRequestsCount(int openPullRequestsCount)
+    {
+        if (openPullRequestsCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(openPullRequestsCount),
+                openPullRequestsCount,
+                "Open pull requests count cannot be negative.");
+        }
+
         OpenPullRequestsCount = openPullRequestsCount;
+    }
 
     /// <summary>
     /// Repository slug in workspace scope.

@@ -290,7 +290,7 @@ public sealed class RepositoryServiceTests
         // Assert
         repositories.Should().HaveCount(2);
         repositories.Select(r => r.Name).Should().ContainInOrder("Repo-1", "Repo-2");
-        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == null);
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == 0);
 
         apiCalls.Should().Be(1);
         progressReports.Should().HaveCount(2);

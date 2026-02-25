@@ -57,7 +57,7 @@ public sealed class BitbucketPRApiClientTests
         var sendCalls = 0;
         var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
 
-        var repository = new Repository("Repo-1", null, null, null, "repo-1");
+        var repository = new Repository("Repo-1", null, null, "repo-1");
         var pullRequestSummaryDto = new PullRequestPageSummaryDto(9);
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
@@ -87,7 +87,7 @@ public sealed class BitbucketPRApiClientTests
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
-        var repository = new Repository("Repo-1", null, null, null, "repo-1");
+        var repository = new Repository("Repo-1", null, null, "repo-1");
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
@@ -105,7 +105,7 @@ public sealed class BitbucketPRApiClientTests
         // Assert
         sendCalls.Should().Be(1);
         repository.Name.Should().Be("Repo-1");
-        repository.OpenPullRequestsCount.Should().BeNull();
+        repository.OpenPullRequestsCount.Should().Be(0);
     }
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns mapped open pull request details")]
@@ -208,8 +208,8 @@ public sealed class BitbucketPRApiClientTests
             "Repo-1",
             new DateTimeOffset(2023, 1, 10, 0, 0, 0, TimeSpan.Zero),
             null,
-            openPullRequestsCount: 2,
             "repo-1");
+        repository.UpdateOpenPullRequestsCount(2);
 
         // Act
         var details = await client.GetOpenPullRequestDetailsAsync(
@@ -246,7 +246,8 @@ public sealed class BitbucketPRApiClientTests
             .ThrowsAsync(new HttpRequestException("boom"));
 
         var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
-        var repository = new Repository("Repo-1", null, null, 1, "repo-1");
+        var repository = new Repository("Repo-1", null, null, "repo-1");
+        repository.UpdateOpenPullRequestsCount(1);
 
         // Act
         var details = await client.GetOpenPullRequestDetailsAsync(

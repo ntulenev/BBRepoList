@@ -107,18 +107,15 @@ public sealed class RepositoryTests
         repo.LastUpdatedOn.Should().Be(lastUpdatedOn);
     }
 
-    [Fact(DisplayName = "Constructor sets open pull requests count")]
+    [Fact(DisplayName = "Constructor initializes open pull requests count to zero")]
     [Trait("Category", "Unit")]
-    public void ConstructorWhenOpenPullRequestsCountIsProvidedSetsOpenPullRequestsCount()
+    public void ConstructorWhenCalledInitializesOpenPullRequestsCountToZero()
     {
-        // Arrange
-        var openPullRequestsCount = 7;
-
         // Act
-        var repo = new Repository("Repo-1", null, null, openPullRequestsCount);
+        var repo = new Repository("Repo-1");
 
         // Assert
-        repo.OpenPullRequestsCount.Should().Be(openPullRequestsCount);
+        repo.OpenPullRequestsCount.Should().Be(0);
     }
 
     [Fact(DisplayName = "UpdateOpenPullRequestsCount updates open pull requests count")]
@@ -126,7 +123,7 @@ public sealed class RepositoryTests
     public void UpdateOpenPullRequestsCountWhenCalledUpdatesOpenPullRequestsCount()
     {
         // Arrange
-        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: null, "repo-1");
+        var repo = new Repository("Repo-1", null, null, "repo-1");
 
         // Act
         repo.UpdateOpenPullRequestsCount(5);
@@ -135,26 +132,42 @@ public sealed class RepositoryTests
         repo.OpenPullRequestsCount.Should().Be(5);
     }
 
-    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is true when slug is provided and count is null")]
+    [Fact(DisplayName = "UpdateOpenPullRequestsCount throws when value is negative")]
     [Trait("Category", "Unit")]
-    public void CanPopulateOpenPullRequestsCountWhenSlugIsProvidedAndCountIsNullReturnsTrue()
+    public void UpdateOpenPullRequestsCountWhenValueIsNegativeThrowsArgumentOutOfRangeException()
     {
         // Arrange
-        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: null, "repo-1");
+        var repo = new Repository("Repo-1", null, null, "repo-1");
+
+        // Act
+        Action act = () => repo.UpdateOpenPullRequestsCount(-1);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is true when slug is provided")]
+    [Trait("Category", "Unit")]
+    public void CanPopulateOpenPullRequestsCountWhenSlugIsProvidedReturnsTrue()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, "repo-1");
 
         // Assert
         repo.CanPopulateOpenPullRequestsCount.Should().BeTrue();
     }
 
-    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is false when count is already set")]
+    [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is true when count is already set and slug is provided")]
     [Trait("Category", "Unit")]
-    public void CanPopulateOpenPullRequestsCountWhenCountIsSetReturnsFalse()
+    public void CanPopulateOpenPullRequestsCountWhenCountIsSetReturnsTrue()
     {
         // Arrange
-        var repo = new Repository("Repo-1", null, null, openPullRequestsCount: 2, "repo-1");
+        var repo = new Repository("Repo-1", null, null, "repo-1");
+        repo.UpdateOpenPullRequestsCount(2);
 
         // Assert
-        repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
+        repo.CanPopulateOpenPullRequestsCount.Should().BeTrue();
     }
 
     [Fact(DisplayName = "CanPopulateOpenPullRequestsCount is false when slug is missing")]
@@ -166,6 +179,40 @@ public sealed class RepositoryTests
 
         // Assert
         repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is true when slug is present and count is greater than zero")]
+    [Trait("Category", "Unit")]
+    public void CanLoadOpenPullRequestDetailsWhenSlugIsPresentAndCountIsGreaterThanZeroReturnsTrue()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, "repo-1");
+        repo.UpdateOpenPullRequestsCount(1);
+
+        // Assert
+        repo.CanLoadOpenPullRequestDetails.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is false when slug is missing")]
+    [Trait("Category", "Unit")]
+    public void CanLoadOpenPullRequestDetailsWhenSlugIsMissingReturnsFalse()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1");
+
+        // Assert
+        repo.CanLoadOpenPullRequestDetails.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is false when open pull requests count is zero")]
+    [Trait("Category", "Unit")]
+    public void CanLoadOpenPullRequestDetailsWhenOpenPullRequestsCountIsZeroReturnsFalse()
+    {
+        // Arrange
+        var repo = new Repository("Repo-1", null, null, "repo-1");
+
+        // Assert
+        repo.CanLoadOpenPullRequestDetails.Should().BeFalse();
     }
 
     [Fact(DisplayName = "Constructor marks inactivity timing as calculable when created and updated dates are provided")]
@@ -208,7 +255,7 @@ public sealed class RepositoryTests
         var slug = "  repo-1  ";
 
         // Act
-        var repo = new Repository("Repo-1", null, null, null, slug);
+        var repo = new Repository("Repo-1", null, null, slug);
 
         // Assert
         repo.Slug.Should().Be("repo-1");
@@ -227,9 +274,10 @@ public sealed class RepositoryTests
         // Assert
         repo.CreatedOn.Should().BeNull();
         repo.LastUpdatedOn.Should().BeNull();
-        repo.OpenPullRequestsCount.Should().BeNull();
+        repo.OpenPullRequestsCount.Should().Be(0);
         repo.Slug.Should().BeNull();
         repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
+        repo.CanLoadOpenPullRequestDetails.Should().BeFalse();
         repo.CanCalculateInactivityTiming.Should().BeFalse();
         repo.MonthsWithoutActivity.Should().Be(0);
     }

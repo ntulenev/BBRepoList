@@ -75,7 +75,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var repository = repositories[i];
                 var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
                 var updatedOn = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-                var openPrs = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
+                var openPrs = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, repository.Slug);
                 var pullRequestsUrl = PdfPresentationHelpers.BuildPullRequestsUrl(workspace, repository.Slug);
 
@@ -90,7 +90,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(createdOn);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(updatedOn);
-                _ = repository.OpenPullRequestsCount is null || string.IsNullOrWhiteSpace(pullRequestsUrl)
+                _ = string.IsNullOrWhiteSpace(pullRequestsUrl)
                     ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openPrs)
                     : table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
@@ -107,7 +107,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
         string workspace)
     {
         var repositoriesWithOpenPullRequests = repositories
-            .Where(static repository => repository.OpenPullRequestsCount.GetValueOrDefault() > 0)
+            .Where(static repository => repository.OpenPullRequestsCount > 0)
             .OrderBy(static repository => repository.CreatedOn ?? DateTimeOffset.MaxValue)
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -141,7 +141,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             {
                 var repository = repositoriesWithOpenPullRequests[i];
                 var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-                var openPrs = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
+                var openPrs = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, repository.Slug);
                 var pullRequestsUrl = PdfPresentationHelpers.BuildPullRequestsUrl(workspace, repository.Slug);
 

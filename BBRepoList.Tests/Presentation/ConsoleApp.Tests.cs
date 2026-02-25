@@ -148,8 +148,8 @@ public sealed class ConsoleAppTests
             })
             .ReturnsAsync(
             [
-                new Repository("Repo-1", repo1CreatedOn, repo1UpdatedOn, 5),
-                new Repository("Repo-2", repo2CreatedOn, repo2UpdatedOn, 2)
+                CreateRepositoryWithOpenPullRequestsCount("Repo-1", repo1CreatedOn, repo1UpdatedOn, 5),
+                CreateRepositoryWithOpenPullRequestsCount("Repo-2", repo2CreatedOn, repo2UpdatedOn, 2)
             ]);
 
         var options = Options.Create(CreateOptions());
@@ -237,7 +237,7 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Repo-1", null, null, 0),
+                CreateRepositoryWithOpenPullRequestsCount("Repo-1", null, null, 0),
                 new Repository("Repo-2")
             ]);
 
@@ -299,7 +299,7 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
+                CreateRepositoryWithOpenPullRequestsCount("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
@@ -363,7 +363,7 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
+                CreateRepositoryWithOpenPullRequestsCount("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
@@ -406,8 +406,8 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Old-Repo", oldCreatedOn, oldLastActivityOn, 0),
-                new Repository("Fresh-Repo", now.AddMonths(-2), now.AddMonths(-1), 0)
+                CreateRepositoryWithOpenPullRequestsCount("Old-Repo", oldCreatedOn, oldLastActivityOn, 0),
+                CreateRepositoryWithOpenPullRequestsCount("Fresh-Repo", now.AddMonths(-2), now.AddMonths(-1), 0)
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
@@ -451,8 +451,8 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Recent-Repo", now.AddMonths(-5), now.AddMonths(-3), 0),
-                new Repository("New-Repo", now.AddMonths(-1), now.AddMonths(-1), 0)
+                CreateRepositoryWithOpenPullRequestsCount("Recent-Repo", now.AddMonths(-5), now.AddMonths(-3), 0),
+                CreateRepositoryWithOpenPullRequestsCount("New-Repo", now.AddMonths(-1), now.AddMonths(-1), 0)
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
@@ -494,8 +494,8 @@ public sealed class ConsoleAppTests
                 cts.Token))
             .ReturnsAsync(
             [
-                new Repository("Old-Repo", oldCreatedOn, oldLastActivityOn, 0),
-                new Repository("Fresh-Repo", now.AddMonths(-2), now.AddMonths(-1), 0)
+                CreateRepositoryWithOpenPullRequestsCount("Old-Repo", oldCreatedOn, oldLastActivityOn, 0),
+                CreateRepositoryWithOpenPullRequestsCount("Fresh-Repo", now.AddMonths(-2), now.AddMonths(-1), 0)
             ]);
 
         var options = Options.Create(CreateOptions(
@@ -513,6 +513,18 @@ public sealed class ConsoleAppTests
 
         // Assert
         output.Should().NotContain("Abandoned repositories");
+    }
+
+    private static Repository CreateRepositoryWithOpenPullRequestsCount(
+        string name,
+        DateTimeOffset? createdOn,
+        DateTimeOffset? lastUpdatedOn,
+        int openPullRequestsCount,
+        string? slug = null)
+    {
+        var repository = new Repository(name, createdOn, lastUpdatedOn, slug);
+        repository.UpdateOpenPullRequestsCount(openPullRequestsCount);
+        return repository;
     }
 
     private static BitbucketOptions CreateOptions(
@@ -579,5 +591,6 @@ public sealed class ConsoleAppTests
         }
     }
 }
+
 
 

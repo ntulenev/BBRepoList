@@ -188,9 +188,7 @@ public sealed class ConsoleApp
         }
 
         var repositoriesToInspect = repositories
-            .Where(static repository => !string.IsNullOrWhiteSpace(repository.Slug)
-                                        && (repository.OpenPullRequestsCount is null
-                                            || repository.OpenPullRequestsCount > 0))
+            .Where(static repository => repository.CanLoadOpenPullRequestDetails)
             .ToList();
 
         if (repositoriesToInspect.Count == 0)
@@ -276,7 +274,7 @@ public sealed class ConsoleApp
             var repository = sortedRepositories[i];
             var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
             var lastUpdated = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-            var openPullRequests = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
+            var openPullRequests = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -292,7 +290,7 @@ public sealed class ConsoleApp
     private static void RenderOpenPullRequestsTableIfAny(List<Repository> sortedRepositories)
     {
         var repositoriesWithOpenPullRequests = sortedRepositories
-            .Where(static repository => repository.OpenPullRequestsCount.GetValueOrDefault() > 0)
+            .Where(static repository => repository.OpenPullRequestsCount > 0)
             .OrderBy(static repository => repository.CreatedOn ?? DateTimeOffset.MaxValue)
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -316,7 +314,7 @@ public sealed class ConsoleApp
         {
             var repository = repositoriesWithOpenPullRequests[i];
             var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-            var openPullRequests = repository.OpenPullRequestsCount?.ToString(CultureInfo.InvariantCulture) ?? "-";
+            var openPullRequests = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),

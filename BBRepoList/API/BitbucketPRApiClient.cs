@@ -49,7 +49,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 UriKind.Relative);
 
             var summary = await _transport.GetAsync<PullRequestPageSummaryDto>(url, cancellationToken).ConfigureAwait(false);
-            repository.UpdateOpenPullRequestsCount(summary?.Size);
+            repository.UpdateOpenPullRequestsCount(summary?.Size ?? 0);
         }
         catch (HttpRequestException)
         {
@@ -65,24 +65,25 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        if (string.IsNullOrWhiteSpace(repository.Slug) || repository.OpenPullRequestsCount == 0)
+        if (!repository.CanLoadOpenPullRequestDetails)
         {
             return [];
         }
 
+        var repositorySlug = repository.Slug!;
         var normalizedCurrentUserId = NormalizeUuid(currentUserId.Value);
         var details = new List<PullRequestDetail>();
 
         try
         {
-            var openPullRequests = await GetOpenPullRequestsAsync(repository.Slug, cancellationToken).ConfigureAwait(false);
+            var openPullRequests = await GetOpenPullRequestsAsync(repositorySlug, cancellationToken).ConfigureAwait(false);
 
             foreach (var pullRequest in openPullRequests)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var activities = await GetPullRequestActivitiesAsync(
-                    repository.Slug,
+                    repositorySlug,
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
 
