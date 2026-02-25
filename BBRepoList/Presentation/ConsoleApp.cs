@@ -346,6 +346,11 @@ public sealed class ConsoleApp
 
     private void RenderAbandonedRepositoriesTableIfAny(List<Repository> sortedRepositories)
     {
+        if (!_options.LoadAbandonedRepositoriesStatistics)
+        {
+            return;
+        }
+
         var abandonedRepositories = sortedRepositories
             .Where(repository => repository.CanCalculateInactivityTiming
                                  && repository.MonthsWithoutActivity > _options.AbandonedMonthsThreshold)
@@ -397,6 +402,7 @@ public sealed class ConsoleApp
             _options.Workspace,
             filterPattern.Phrase,
             _options.AbandonedMonthsThreshold,
+            _options.LoadAbandonedRepositoriesStatistics,
             _options.PullRequestDetails.TtfrThresholdHours,
             DateTimeOffset.Now,
             repositories,

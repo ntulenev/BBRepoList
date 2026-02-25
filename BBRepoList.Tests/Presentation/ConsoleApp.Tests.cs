@@ -407,8 +407,54 @@ public sealed class ConsoleAppTests
         output.Should().NotContain("Abandoned repositories");
     }
 
+    [Fact(DisplayName = "RunAsync does not render abandoned repositories table when loading is disabled")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenAbandonedRepositoriesLoadingIsDisabledDoesNotRenderAbandonedRepositoriesTable()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var now = DateTimeOffset.UtcNow;
+        var oldCreatedOn = now.AddMonths(-30);
+        var oldLastActivityOn = now.AddMonths(-16);
+
+        var api = new Mock<IBitbucketApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.IsAny<IProgress<RepoLoadProgress>>(),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new Repository("Old-Repo", oldCreatedOn, oldLastActivityOn, 0),
+                new Repository("Fresh-Repo", now.AddMonths(-2), now.AddMonths(-1), 0)
+            ]);
+
+        var options = Options.Create(CreateOptions(
+            abandonedMonthsThreshold: 12,
+            loadAbandonedRepositoriesStatistics: false));
+        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        output.Should().NotContain("Abandoned repositories");
+    }
+
     private static BitbucketOptions CreateOptions(
         int abandonedMonthsThreshold = 120,
+        bool loadAbandonedRepositoriesStatistics = true,
         bool prDetailsEnabled = false,
         int ttfrThresholdHours = 4)
     {
@@ -430,7 +476,8 @@ public sealed class ConsoleAppTests
                 IsEnabled = prDetailsEnabled,
                 TtfrThresholdHours = ttfrThresholdHours
             },
-            AbandonedMonthsThreshold = abandonedMonthsThreshold
+            AbandonedMonthsThreshold = abandonedMonthsThreshold,
+            LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics
         };
     }
 

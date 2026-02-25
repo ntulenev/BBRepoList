@@ -11,6 +11,7 @@ public sealed class RepositoryPdfReportData
     /// <param name="workspace">Workspace name.</param>
     /// <param name="filterPhrase">Filter phrase.</param>
     /// <param name="abandonedMonthsThreshold">Abandoned repository threshold in months.</param>
+    /// <param name="loadAbandonedRepositoriesStatistics">Whether abandoned repositories statistics should be included.</param>
     /// <param name="ttfrThresholdHours">TTFR threshold in hours.</param>
     /// <param name="generatedAt">Generation timestamp.</param>
     /// <param name="repositories">Repositories included in report.</param>
@@ -19,6 +20,7 @@ public sealed class RepositoryPdfReportData
         string workspace,
         string? filterPhrase,
         int abandonedMonthsThreshold,
+        bool loadAbandonedRepositoriesStatistics,
         int ttfrThresholdHours,
         DateTimeOffset generatedAt,
         IReadOnlyList<Repository> repositories,
@@ -31,6 +33,7 @@ public sealed class RepositoryPdfReportData
         Workspace = workspace.Trim();
         FilterPhrase = string.IsNullOrWhiteSpace(filterPhrase) ? null : filterPhrase.Trim();
         AbandonedMonthsThreshold = abandonedMonthsThreshold;
+        LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics;
         TtfrThresholdHours = ttfrThresholdHours;
         GeneratedAt = generatedAt;
         Repositories = repositories;
@@ -51,6 +54,11 @@ public sealed class RepositoryPdfReportData
     /// Abandoned repository threshold in months.
     /// </summary>
     public int AbandonedMonthsThreshold { get; }
+
+    /// <summary>
+    /// Whether abandoned repositories statistics should be included.
+    /// </summary>
+    public bool LoadAbandonedRepositoriesStatistics { get; }
 
     /// <summary>
     /// Report generation timestamp.

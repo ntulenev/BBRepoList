@@ -76,6 +76,11 @@ public sealed class BitbucketOptions
     [Range(1, 120)]
     public int AbandonedMonthsThreshold { get; init; } = 12;
 
+    /// <summary>
+    /// Whether abandoned repositories statistics should be loaded.
+    /// </summary>
+    public bool LoadAbandonedRepositoriesStatistics { get; init; } = true;
+
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

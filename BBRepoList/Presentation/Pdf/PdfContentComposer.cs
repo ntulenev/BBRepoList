@@ -33,6 +33,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             column,
             reportData.Repositories,
             reportData.Workspace,
+            reportData.LoadAbandonedRepositoriesStatistics,
             reportData.AbandonedMonthsThreshold);
     }
 
@@ -266,8 +267,14 @@ public sealed class PdfContentComposer : IPdfContentComposer
         ColumnDescriptor column,
         IReadOnlyList<Repository> repositories,
         string workspace,
+        bool loadAbandonedRepositoriesStatistics,
         int abandonedMonthsThreshold)
     {
+        if (!loadAbandonedRepositoriesStatistics)
+        {
+            return;
+        }
+
         var abandonedRepositories = repositories
             .Where(repository => repository.CanCalculateInactivityTiming
                                  && repository.MonthsWithoutActivity > abandonedMonthsThreshold)

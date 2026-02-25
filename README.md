@@ -40,7 +40,8 @@ Example:
       "IsEnabled": false,
       "TtfrThresholdHours": 4
     },
-    "AbandonedMonthsThreshold": 12
+    "AbandonedMonthsThreshold": 12,
+    "LoadAbandonedRepositoriesStatistics": true
   }
 }
 ```
@@ -59,6 +60,7 @@ Settings:
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.
 - `PullRequestDetails.TtfrThresholdHours`: TTFR threshold in hours. When no first non-author response exists and open PR age exceeds this value, TTFR cell shows red `ALERT`. Default: `4`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
+- `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 
 ## Output
 The app renders:
@@ -68,7 +70,7 @@ The app renders:
 - `Open for` (time from PR creation until now)
 - `TTFR` (time to first real non-author activity; red `ALERT` when there is still no first non-author activity after threshold)
 - `My Comments` (`Yes` when current authenticated user has comments in PR activity)
-- `Abandoned repositories` table (shown only when inactivity is above the configured threshold), including:
+- `Abandoned repositories` table (shown only when `LoadAbandonedRepositoriesStatistics` is enabled and inactivity is above the configured threshold), including:
 - `Created on`
 - `Last activity on`
 - `Months inactive`
