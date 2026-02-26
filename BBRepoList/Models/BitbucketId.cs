@@ -13,6 +13,7 @@ public readonly record struct BitbucketId
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         Value = value.Trim();
+        _normalizedValue = Normalize(Value);
     }
 
     /// <summary>
@@ -52,11 +53,14 @@ public readonly record struct BitbucketId
     /// <param name="other">Other identifier.</param>
     /// <returns><see langword="true" /> when values match ignoring braces and casing.</returns>
     public bool Equals(BitbucketId other) =>
-        string.Equals(Normalize(Value), Normalize(other.Value), StringComparison.OrdinalIgnoreCase);
+        string.Equals(
+            _normalizedValue ?? string.Empty,
+            other._normalizedValue ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc />
     public override int GetHashCode() =>
-        StringComparer.OrdinalIgnoreCase.GetHashCode(Normalize(Value));
+        StringComparer.OrdinalIgnoreCase.GetHashCode(_normalizedValue ?? string.Empty);
 
     private static string Normalize(string? value)
     {
@@ -67,4 +71,6 @@ public readonly record struct BitbucketId
 
         return value.Trim().Trim('{', '}');
     }
+
+    private readonly string? _normalizedValue;
 }
