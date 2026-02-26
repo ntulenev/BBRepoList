@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Configuration;
@@ -19,13 +18,19 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     /// Initializes a new instance of the <see cref="BitbucketPRApiClient"/> class.
     /// </summary>
     /// <param name="transport">Bitbucket transport instance.</param>
+    /// <param name="jsonParser">Bitbucket JSON parser.</param>
     /// <param name="options">Bitbucket configuration options.</param>
-    public BitbucketPRApiClient(IBitbucketTransport transport, IOptions<BitbucketOptions> options)
+    public BitbucketPRApiClient(
+        IBitbucketTransport transport,
+        IBitbucketJsonParser jsonParser,
+        IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
+        ArgumentNullException.ThrowIfNull(jsonParser);
         ArgumentNullException.ThrowIfNull(options);
 
         _transport = transport;
+        _jsonParser = jsonParser;
         _options = options.Value;
     }
 
@@ -71,7 +76,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         }
 
         var repositorySlug = repository.Slug!;
-        var normalizedCurrentUserId = NormalizeUuid(currentUserId.Value);
         var details = new List<PullRequestDetail>();
 
         try
@@ -87,23 +91,16 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
 
-                var normalizedAuthorUuid = NormalizeUuid(pullRequest.AuthorUuid);
                 var firstNonAuthorActivityOn = activities
-                    .Where(activity => string.IsNullOrWhiteSpace(normalizedAuthorUuid)
-                                       || !string.Equals(
-                                           NormalizeUuid(activity.ActorUuid),
-                                           normalizedAuthorUuid,
-                                           StringComparison.OrdinalIgnoreCase))
+                    .Where(activity => pullRequest.AuthorId is null
+                                       || activity.ActorId != pullRequest.AuthorId.Value)
                     .OrderBy(static activity => activity.HappenedOn)
                     .Select(static activity => (DateTimeOffset?)activity.HappenedOn)
                     .FirstOrDefault();
 
                 var hasCurrentUserDiscussion = activities.Any(activity =>
                     activity.IsComment
-                    && string.Equals(
-                        NormalizeUuid(activity.ActorUuid),
-                        normalizedCurrentUserId,
-                        StringComparison.OrdinalIgnoreCase));
+                    && activity.ActorId == currentUserId);
 
                 details.Add(new PullRequestDetail(
                     repository.Name,
@@ -112,7 +109,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.Id,
                     pullRequest.Title,
                     pullRequest.CreatedOn,
-                    pullRequest.AuthorUuid,
+                    pullRequest.AuthorId?.Value,
                     firstNonAuthorActivityOn,
                     hasCurrentUserDiscussion));
             }
@@ -151,13 +148,17 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
+                var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
+                    ? parsedAuthorId
+                    : (BitbucketId?)null;
+
                 pullRequests.Add(new OpenPullRequest(
                     pullRequestDto.Id.Value,
                     string.IsNullOrWhiteSpace(pullRequestDto.Title)
                         ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
                         : pullRequestDto.Title.Trim(),
                     pullRequestDto.CreatedOn.Value,
-                    pullRequestDto.Author?.Uuid));
+                    authorId));
             }
 
             url = page.Next;
@@ -195,124 +196,20 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
                 foreach (var property in activity.Properties)
                 {
-                    AddActivityEntriesFromJson(property.Value, isCommentContext: property.Key.Equals("comment", StringComparison.OrdinalIgnoreCase), activities);
+                    _jsonParser.AddActivityEntriesFromJson(
+                        property.Value,
+                        isCommentContext: property.Key.Equals("comment", StringComparison.OrdinalIgnoreCase),
+                        (actorId, happenedOn, isComment) =>
+                            activities.Add(new PullRequestActivityEntry(actorId, happenedOn, isComment)));
                 }
             }
 
             url = page.Next;
         }
 
-        return [.. activities.DistinctBy(static activity => (activity.ActorUuid, activity.HappenedOn, activity.IsComment))];
+        return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
     }
-
-    private static void AddActivityEntriesFromJson(
-        JsonElement element,
-        bool isCommentContext,
-        ICollection<PullRequestActivityEntry> entries)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            var currentScopeIsComment = isCommentContext;
-            var actorUuid = default(string);
-            var happenedOn = default(DateTimeOffset?);
-
-            foreach (var property in element.EnumerateObject())
-            {
-                if (property.Name.Equals("comment", StringComparison.OrdinalIgnoreCase))
-                {
-                    currentScopeIsComment = true;
-                }
-
-                if (actorUuid is null
-                    && (property.Name.Equals("user", StringComparison.OrdinalIgnoreCase)
-                        || property.Name.Equals("actor", StringComparison.OrdinalIgnoreCase))
-                    && TryReadUuidFromObject(property.Value, out var parsedUuid))
-                {
-                    actorUuid = parsedUuid;
-                }
-
-                if (happenedOn is null
-                    && IsDateProperty(property.Name)
-                    && TryReadDateTime(property.Value, out var parsedDate))
-                {
-                    happenedOn = parsedDate;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(actorUuid) && happenedOn is not null)
-            {
-                entries.Add(new PullRequestActivityEntry(actorUuid, happenedOn.Value, currentScopeIsComment));
-            }
-
-            foreach (var property in element.EnumerateObject())
-            {
-                AddActivityEntriesFromJson(
-                    property.Value,
-                    currentScopeIsComment || property.Name.Equals("comment", StringComparison.OrdinalIgnoreCase),
-                    entries);
-            }
-
-            return;
-        }
-
-        if (element.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in element.EnumerateArray())
-            {
-                AddActivityEntriesFromJson(item, isCommentContext, entries);
-            }
-        }
-    }
-
-    private static bool IsDateProperty(string propertyName) =>
-        propertyName.Equals("date", StringComparison.OrdinalIgnoreCase)
-        || propertyName.Equals("created_on", StringComparison.OrdinalIgnoreCase)
-        || propertyName.Equals("updated_on", StringComparison.OrdinalIgnoreCase);
-
-    private static bool TryReadUuidFromObject(JsonElement element, out string uuid)
-    {
-        uuid = string.Empty;
-
-        if (element.ValueKind is not JsonValueKind.Object
-            || !element.TryGetProperty("uuid", out var uuidElement)
-            || uuidElement.ValueKind is not JsonValueKind.String)
-        {
-            return false;
-        }
-
-        var rawUuid = uuidElement.GetString();
-        if (string.IsNullOrWhiteSpace(rawUuid))
-        {
-            return false;
-        }
-
-        uuid = rawUuid.Trim();
-        return true;
-    }
-
-    private static bool TryReadDateTime(JsonElement element, out DateTimeOffset value)
-    {
-        value = default;
-
-        if (element.ValueKind is not JsonValueKind.String)
-        {
-            return false;
-        }
-
-        var raw = element.GetString();
-        return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value);
-    }
-
-    private static string NormalizeUuid(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Trim().Trim('{', '}');
-    }
-
     private readonly IBitbucketTransport _transport;
+    private readonly IBitbucketJsonParser _jsonParser;
     private readonly BitbucketOptions _options;
 }

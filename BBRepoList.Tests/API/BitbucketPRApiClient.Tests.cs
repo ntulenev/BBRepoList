@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using BBRepoList.Abstractions;
 using BBRepoList.API;
+using BBRepoList.API.Helpers;
 using BBRepoList.Configuration;
 using BBRepoList.Models;
 using BBRepoList.Transport;
@@ -22,10 +23,28 @@ public sealed class BitbucketPRApiClientTests
     {
         // Arrange
         IBitbucketTransport transport = null!;
+        var parser = new BitbucketJsonParser();
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport, parser, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when json parser is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenJsonParserIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        IBitbucketJsonParser parser = null!;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, options);
 
         // Assert
         act.Should()
@@ -38,10 +57,11 @@ public sealed class BitbucketPRApiClientTests
     {
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        var parser = new BitbucketJsonParser();
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, options);
 
         // Assert
         act.Should()
@@ -68,7 +88,7 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ReturnsAsync(pullRequestSummaryDto);
 
-        var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
+        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
 
         // Act
         await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
@@ -97,7 +117,7 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
-        var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
+        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
 
         // Act
         await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
@@ -203,7 +223,7 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ReturnsAsync(secondActivityDto);
 
-        var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
+        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
         var repository = new Repository(
             "Repo-1",
             new DateTimeOffset(2023, 1, 10, 0, 0, 0, TimeSpan.Zero),
@@ -245,7 +265,7 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
-        var client = new BitbucketPRApiClient(transport.Object, Options.Create(CreateOptions()));
+        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
         var repository = new Repository("Repo-1", null, null, "repo-1");
         repository.UpdateOpenPullRequestsCount(1);
 

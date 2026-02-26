@@ -1,6 +1,6 @@
 namespace BBRepoList.Models;
 
 internal readonly record struct PullRequestActivityEntry(
-    string ActorUuid,
+    BitbucketId ActorId,
     DateTimeOffset HappenedOn,
     bool IsComment);
