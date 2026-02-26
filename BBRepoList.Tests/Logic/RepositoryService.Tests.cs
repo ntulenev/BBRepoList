@@ -355,6 +355,102 @@ public sealed class RepositoryServiceTests
         maxInFlight.Should().BeGreaterThan(1);
     }
 
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync loads details for eligible repositories and reports progress")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenEnabledLoadsAndSortsDetails()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var currentUserId = new BitbucketId("{current-user}");
+        var prDetailCalls = 0;
+
+        var repo1 = new Repository("Repo-1", null, null, "repo-1");
+        repo1.UpdateOpenPullRequestsCount(1);
+        var repo2 = new Repository("Repo-2", null, null, "repo-2");
+        repo2.UpdateOpenPullRequestsCount(2);
+        var repoWithoutOpenPrs = new Repository("Repo-3", null, null, "repo-3");
+        repoWithoutOpenPrs.UpdateOpenPullRequestsCount(0);
+
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo1, currentUserId, It.IsAny<CancellationToken>()))
+            .Callback(() => prDetailCalls++)
+            .ReturnsAsync(
+            [
+                new PullRequestDetail(
+                    "Repo-1",
+                    "repo-1",
+                    null,
+                    101,
+                    "PR older",
+                    new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+                    "{author-1}",
+                    null,
+                    false)
+            ]);
+        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo2, currentUserId, It.IsAny<CancellationToken>()))
+            .Callback(() => prDetailCalls++)
+            .ReturnsAsync(
+            [
+                new PullRequestDetail(
+                    "Repo-2",
+                    "repo-2",
+                    null,
+                    102,
+                    "PR newer",
+                    new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero),
+                    "{author-2}",
+                    null,
+                    true)
+            ]);
+
+        var progressReports = new List<PullRequestDetailsLoadProgress>();
+        var progress = new Progress<PullRequestDetailsLoadProgress>(progressReports.Add);
+
+        var service = new RepositoryService(
+            api.Object,
+            prApi.Object,
+            Options.Create(CreateOptions(prDetailsEnabled: true, prDetailsLoadThreshold: 2)));
+
+        // Act
+        var details = await service.GetOpenPullRequestDetailsAsync(
+            [repo1, repo2, repoWithoutOpenPrs],
+            currentUserId,
+            progress,
+            cts.Token);
+
+        // Assert
+        prDetailCalls.Should().Be(2);
+        details.Should().HaveCount(2);
+        details.Select(d => d.RepositoryName).Should().ContainInOrder("Repo-2", "Repo-1");
+        progressReports.Should().Contain(report => report.LoadedRepositories == 0 && report.TotalRepositories == 2);
+        progressReports.Should().Contain(report => report.LoadedRepositories == 2 && report.TotalRepositories == 2);
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns empty list when disabled in options")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenDisabledReturnsEmpty()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var currentUserId = new BitbucketId("{current-user}");
+        var repository = new Repository("Repo-1", null, null, "repo-1");
+        repository.UpdateOpenPullRequestsCount(1);
+
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        var service = new RepositoryService(
+            api.Object,
+            prApi.Object,
+            Options.Create(CreateOptions(prDetailsEnabled: false)));
+
+        // Act
+        var details = await service.GetOpenPullRequestDetailsAsync([repository], currentUserId, progress: null, cts.Token);
+
+        // Assert
+        details.Should().BeEmpty();
+    }
+
     private static async IAsyncEnumerable<Repository> StreamRepositories(
         IReadOnlyList<Repository[]> pages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -372,7 +468,9 @@ public sealed class RepositoryServiceTests
 
     private static BitbucketOptions CreateOptions(
         bool loadOpenPullRequestsStatistics = true,
-        int openPullRequestsLoadThreshold = 8)
+        int openPullRequestsLoadThreshold = 8,
+        bool prDetailsEnabled = false,
+        int prDetailsLoadThreshold = 8)
     {
         return new BitbucketOptions
         {
@@ -382,6 +480,11 @@ public sealed class RepositoryServiceTests
             AuthApiToken = "token",
             PageLen = 25,
             RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = prDetailsEnabled,
+                LoadThreshold = prDetailsLoadThreshold
+            },
             AbandonedMonthsThreshold = 12,
             LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics,
             OpenPullRequestsLoadThreshold = openPullRequestsLoadThreshold

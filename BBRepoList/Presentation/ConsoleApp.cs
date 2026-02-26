@@ -19,24 +19,20 @@ public sealed class ConsoleApp
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
     /// <param name="bitbucketAuthApiClient">Bitbucket auth API client.</param>
-    /// <param name="bitbucketPrApiClient">Bitbucket pull request API client.</param>
     /// <param name="pdfReportRenderer">PDF report renderer.</param>
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
-                      IBitbucketPRApiClient bitbucketPrApiClient,
                       IPdfReportRenderer pdfReportRenderer,
                       IRepoService repoService,
                       IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
-        ArgumentNullException.ThrowIfNull(bitbucketPrApiClient);
         ArgumentNullException.ThrowIfNull(pdfReportRenderer);
         ArgumentNullException.ThrowIfNull(repoService);
         ArgumentNullException.ThrowIfNull(options);
 
         _bitbucketAuthApiClient = bitbucketAuthApiClient;
-        _bitbucketPrApiClient = bitbucketPrApiClient;
         _pdfReportRenderer = pdfReportRenderer;
         _repoService = repoService;
         _options = options.Value;
@@ -76,7 +72,6 @@ public sealed class ConsoleApp
     }
 
     private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
-    private readonly IBitbucketPRApiClient _bitbucketPrApiClient;
     private readonly IPdfReportRenderer _pdfReportRenderer;
     private readonly IRepoService _repoService;
     private readonly BitbucketOptions _options;
@@ -187,69 +182,30 @@ public sealed class ConsoleApp
             return [];
         }
 
-        var repositoriesToInspect = repositories
-            .Where(static repository => repository.CanLoadOpenPullRequestDetails)
-            .ToList();
-
-        if (repositoriesToInspect.Count == 0)
-        {
-            return [];
-        }
-
-        var pullRequestDetails = new List<PullRequestDetail>();
-        var detailsByRepository = new IReadOnlyList<PullRequestDetail>?[repositoriesToInspect.Count];
-        var loadedRepositories = 0;
-        var statusSync = new object();
+        IReadOnlyList<PullRequestDetail> pullRequestDetails = [];
+        PullRequestDetailsLoadProgress? lastProgress = null;
 
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Loading Open PR details...", async ctx =>
             {
-                await Parallel.ForEachAsync(
-                    Enumerable.Range(0, repositoriesToInspect.Count),
-                    new ParallelOptions
-                    {
-                        MaxDegreeOfParallelism = _options.PullRequestDetails.LoadThreshold,
-                        CancellationToken = cancellationToken
-                    },
-                    async (index, token) =>
-                    {
-                        token.ThrowIfCancellationRequested();
-
-                        var repository = repositoriesToInspect[index];
-                        var details = await _bitbucketPrApiClient
-                            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cancellationToken)
-                            .ConfigureAwait(false);
-
-                        detailsByRepository[index] = details;
-
-                        var currentLoaded = Interlocked.Increment(ref loadedRepositories);
-                        lock (statusSync)
-                        {
-                            _ = ctx.Status(
-                                $"Loading Open PR details... {currentLoaded}/{repositoriesToInspect.Count} repositories");
-                        }
-                    }).ConfigureAwait(false);
-
-                for (var index = 0; index < detailsByRepository.Length; index++)
+                var progress = new Progress<PullRequestDetailsLoadProgress>(p =>
                 {
-                    if (detailsByRepository[index] is { } details)
-                    {
-                        pullRequestDetails.AddRange(details);
-                    }
-                }
+                    lastProgress = p;
+                    _ = ctx.Status($"Loading Open PR details... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
+                });
 
-                _ = ctx.Status($"Loaded Open PR details for {repositoriesToInspect.Count} repositories.");
+                pullRequestDetails = await _repoService
+                    .GetOpenPullRequestDetailsAsync(repositories, currentUserId, progress, cancellationToken)
+                    .ConfigureAwait(false);
+
+                _ = lastProgress is not null
+                    ? ctx.Status($"Loaded Open PR details for {lastProgress.TotalRepositories} repositories.")
+                    : ctx.Status("Loaded Open PR details.");
             }).ConfigureAwait(false);
 
-        var sortedDetails = pullRequestDetails
-            .OrderByDescending(static detail => detail.OpenedOn)
-            .ThenBy(static detail => detail.RepositoryName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(static detail => detail.PullRequestId)
-            .ToList();
-
-        return sortedDetails;
+        return pullRequestDetails;
     }
 
     private void ShowResultsHeader(int resultCount)
