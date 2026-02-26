@@ -378,13 +378,11 @@ public sealed class RepositoryServiceTests
             .ReturnsAsync(
             [
                 new PullRequestDetail(
-                    "Repo-1",
-                    "repo-1",
-                    null,
+                    repo1,
                     101,
                     "PR older",
                     new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
-                    "{author-1}",
+                    new BitbucketId("{author-1}"),
                     null,
                     false)
             ]);
@@ -393,13 +391,11 @@ public sealed class RepositoryServiceTests
             .ReturnsAsync(
             [
                 new PullRequestDetail(
-                    "Repo-2",
-                    "repo-2",
-                    null,
+                    repo2,
                     102,
                     "PR newer",
                     new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero),
-                    "{author-2}",
+                    new BitbucketId("{author-2}"),
                     null,
                     true)
             ]);

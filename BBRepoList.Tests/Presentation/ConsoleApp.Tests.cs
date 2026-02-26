@@ -268,13 +268,11 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(
             [
                 new PullRequestDetail(
-                    "Repo-1",
-                    "repo-1",
-                    repoCreatedOn,
+                    new Repository("Repo-1", repoCreatedOn, null, "repo-1"),
                     101,
                     "Feature work",
                     prOpenedOn,
-                    "{author}",
+                    new BitbucketId("{author}"),
                     prOpenedOn.AddHours(5),
                     true)
             ]);
@@ -332,13 +330,11 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(
             [
                 new PullRequestDetail(
-                    "Repo-1",
-                    "repo-1",
-                    repoCreatedOn,
+                    new Repository("Repo-1", repoCreatedOn, null, "repo-1"),
                     101,
                     "No response yet",
                     prOpenedOn,
-                    "{author}",
+                    new BitbucketId("{author}"),
                     firstNonAuthorActivityOn: null,
                     hasCurrentUserDiscussion: false)
             ]);

@@ -103,13 +103,11 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     && activity.ActorId == currentUserId);
 
                 details.Add(new PullRequestDetail(
-                    repository.Name,
-                    repository.Slug,
-                    repository.CreatedOn,
+                    repository,
                     pullRequest.Id,
                     pullRequest.Title,
                     pullRequest.CreatedOn,
-                    pullRequest.AuthorId?.Value,
+                    pullRequest.AuthorId,
                     firstNonAuthorActivityOn,
                     hasCurrentUserDiscussion));
             }

@@ -8,30 +8,23 @@ public sealed class PullRequestDetail
     /// <summary>
     /// Initializes a new instance of the <see cref="PullRequestDetail"/> class.
     /// </summary>
-    /// <param name="repositoryName">Repository display name.</param>
-    /// <param name="repositorySlug">Repository slug in workspace scope.</param>
-    /// <param name="repositoryCreatedOn">Repository creation timestamp.</param>
+    /// <param name="repository">Repository that owns the pull request.</param>
     /// <param name="pullRequestId">Pull request identifier in repository scope.</param>
     /// <param name="title">Pull request title.</param>
     /// <param name="openedOn">Pull request creation timestamp.</param>
-    /// <param name="authorUuid">Pull request author UUID.</param>
+    /// <param name="authorId">Pull request author identifier.</param>
     /// <param name="firstNonAuthorActivityOn">First activity timestamp by non-author.</param>
     /// <param name="hasCurrentUserDiscussion">Whether current authenticated user has commented in activity.</param>
     public PullRequestDetail(
-        string repositoryName,
-        string? repositorySlug,
-        DateTimeOffset? repositoryCreatedOn,
+        Repository repository,
         int pullRequestId,
         string title,
         DateTimeOffset openedOn,
-        string? authorUuid,
+        BitbucketId? authorId,
         DateTimeOffset? firstNonAuthorActivityOn,
         bool hasCurrentUserDiscussion)
     {
-        if (string.IsNullOrWhiteSpace(repositoryName))
-        {
-            throw new ArgumentException("Repository name cannot be empty.", nameof(repositoryName));
-        }
+        ArgumentNullException.ThrowIfNull(repository);
 
         if (pullRequestId <= 0)
         {
@@ -43,31 +36,34 @@ public sealed class PullRequestDetail
             throw new ArgumentException("Pull request title cannot be empty.", nameof(title));
         }
 
-        RepositoryName = repositoryName.Trim();
-        RepositorySlug = string.IsNullOrWhiteSpace(repositorySlug) ? null : repositorySlug.Trim();
-        RepositoryCreatedOn = repositoryCreatedOn;
+        Repository = repository;
         PullRequestId = pullRequestId;
         Title = title.Trim();
         OpenedOn = openedOn;
-        AuthorUuid = string.IsNullOrWhiteSpace(authorUuid) ? null : authorUuid.Trim();
+        AuthorId = authorId;
         FirstNonAuthorActivityOn = firstNonAuthorActivityOn;
         HasCurrentUserDiscussion = hasCurrentUserDiscussion;
     }
 
     /// <summary>
+    /// Repository that owns the pull request.
+    /// </summary>
+    public Repository Repository { get; }
+
+    /// <summary>
     /// Repository display name.
     /// </summary>
-    public string RepositoryName { get; }
+    public string RepositoryName => Repository.Name;
 
     /// <summary>
     /// Repository slug in workspace scope.
     /// </summary>
-    public string? RepositorySlug { get; }
+    public string? RepositorySlug => Repository.Slug;
 
     /// <summary>
     /// Repository creation timestamp.
     /// </summary>
-    public DateTimeOffset? RepositoryCreatedOn { get; }
+    public DateTimeOffset? RepositoryCreatedOn => Repository.CreatedOn;
 
     /// <summary>
     /// Pull request identifier in repository scope.
@@ -85,9 +81,9 @@ public sealed class PullRequestDetail
     public DateTimeOffset OpenedOn { get; }
 
     /// <summary>
-    /// Pull request author UUID.
+    /// Pull request author identifier.
     /// </summary>
-    public string? AuthorUuid { get; }
+    public BitbucketId? AuthorId { get; }
 
     /// <summary>
     /// First activity timestamp by non-author.
