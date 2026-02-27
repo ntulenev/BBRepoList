@@ -110,13 +110,20 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()))
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)))
             .Callback(() => pdfCalls++);
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .Callback<FilterPattern, IProgress<RepoLoadProgress>?, CancellationToken>((_, progress, __) =>
             {
@@ -169,12 +176,19 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 0
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo", RepositorySearchMode.StartWith),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .Callback(() => repoCalls++)
             .ReturnsAsync([]);
@@ -205,12 +219,19 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -248,12 +269,19 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.PullRequestDetails.Count == 1
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -262,7 +290,7 @@ public sealed class ConsoleAppTests
         repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 new BitbucketId("{uuid}"),
-                It.IsAny<IProgress<PullRequestDetailsLoadProgress>>(),
+                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
                 cts.Token))
             .Callback(() => detailsCalls++)
             .ReturnsAsync(
@@ -311,12 +339,19 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.PullRequestDetails.Count == 1
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -325,7 +360,7 @@ public sealed class ConsoleAppTests
         repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 new BitbucketId("{uuid}"),
-                It.IsAny<IProgress<PullRequestDetailsLoadProgress>>(),
+                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -370,12 +405,18 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -415,12 +456,18 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -458,12 +505,18 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && !data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
                 new FilterPattern("Repo"),
-                It.IsAny<IProgress<RepoLoadProgress>>(),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -564,6 +617,9 @@ public sealed class ConsoleAppTests
         }
     }
 }
+
+
+
 
 
 
