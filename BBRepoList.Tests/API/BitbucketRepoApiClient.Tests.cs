@@ -65,13 +65,13 @@ public sealed class BitbucketRepoApiClientTests
         transport
             .Setup(t => t.GetAsync<RepoPageDto>(
                 It.Is<Uri>(u => u.ToString() == firstUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(firstDto);
         transport
             .Setup(t => t.GetAsync<RepoPageDto>(
                 It.Is<Uri>(u => u.ToString() == nextUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(secondDto);
 
@@ -102,7 +102,7 @@ public sealed class BitbucketRepoApiClientTests
         transport
             .Setup(t => t.GetAsync<RepoPageDto>(
                 It.Is<Uri>(u => u.ToString() == requestUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync((RepoPageDto?)null);
 
@@ -133,7 +133,7 @@ public sealed class BitbucketRepoApiClientTests
         transport
             .Setup(t => t.GetAsync<RepoPageDto>(
                 It.Is<Uri>(u => u.ToString() == requestUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
@@ -167,4 +167,5 @@ public sealed class BitbucketRepoApiClientTests
         };
     }
 }
+
 

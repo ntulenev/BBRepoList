@@ -100,7 +100,7 @@ public sealed class BitbucketAuthApiClientTests
         transport
             .Setup(t => t.GetAsync<BitbucketUserDto>(
                 It.Is<Uri>(u => u.ToString() == expectedRequestUri),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(dto);
 
@@ -133,7 +133,7 @@ public sealed class BitbucketAuthApiClientTests
         transport
             .Setup(t => t.GetAsync<BitbucketUserDto>(
                 It.Is<Uri>(u => u.ToString() == expectedRequestUri),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync((BitbucketUserDto?)null);
 
@@ -167,7 +167,7 @@ public sealed class BitbucketAuthApiClientTests
         transport
             .Setup(t => t.GetAsync<BitbucketUserDto>(
                 It.Is<Uri>(u => u.ToString() == expectedRequestUri),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
@@ -188,3 +188,4 @@ public sealed class BitbucketAuthApiClientTests
         sendCalls.Should().Be(1);
     }
 }
+

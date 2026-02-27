@@ -84,7 +84,7 @@ public sealed class BitbucketPRApiClientTests
         transport
             .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
                 It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(pullRequestSummaryDto);
 
@@ -113,7 +113,7 @@ public sealed class BitbucketPRApiClientTests
         transport
             .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
                 It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
@@ -207,19 +207,19 @@ public sealed class BitbucketPRApiClientTests
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
                 It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(pullRequestsDto);
         transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == firstActivityUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(firstActivityDto);
         transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == secondActivityUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(secondActivityDto);
 
@@ -261,7 +261,7 @@ public sealed class BitbucketPRApiClientTests
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
                 It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
-                It.IsAny<CancellationToken>()))
+                It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
@@ -299,3 +299,4 @@ public sealed class BitbucketPRApiClientTests
         };
     }
 }
+

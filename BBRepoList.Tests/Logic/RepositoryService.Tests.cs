@@ -90,7 +90,7 @@ public sealed class RepositoryServiceTests
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
-        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Callback<Repository, CancellationToken>((repository, _) =>
             {
                 enrichCalls++;
@@ -161,7 +161,7 @@ public sealed class RepositoryServiceTests
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
-        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Callback<Repository, CancellationToken>((repository, _) =>
             {
                 enrichCalls++;
@@ -228,7 +228,7 @@ public sealed class RepositoryServiceTests
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
-        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Callback<Repository, CancellationToken>((_, _) => enrichCalls++)
             .Returns(Task.CompletedTask);
 
@@ -320,7 +320,7 @@ public sealed class RepositoryServiceTests
             .Returns<CancellationToken>(token => StreamRepositories(pages, token));
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
-        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.PopulateOpenPullRequestCountAsync(It.IsAny<Repository>(), It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Returns<Repository, CancellationToken>(async (repository, token) =>
             {
                 var currentInFlight = Interlocked.Increment(ref inFlight);
@@ -373,7 +373,7 @@ public sealed class RepositoryServiceTests
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
-        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo1, currentUserId, It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo1, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Callback(() => prDetailCalls++)
             .ReturnsAsync(
             [
@@ -386,7 +386,7 @@ public sealed class RepositoryServiceTests
                     null,
                     false)
             ]);
-        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo2, currentUserId, It.IsAny<CancellationToken>()))
+        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo2, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
             .Callback(() => prDetailCalls++)
             .ReturnsAsync(
             [
@@ -504,4 +504,5 @@ public sealed class RepositoryServiceTests
         }
     }
 }
+
 

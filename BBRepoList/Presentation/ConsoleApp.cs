@@ -71,11 +71,6 @@ public sealed class ConsoleApp
         ShowDone();
     }
 
-    private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
-    private readonly IPdfReportRenderer _pdfReportRenderer;
-    private readonly IRepoService _repoService;
-    private readonly BitbucketOptions _options;
-
     private static void ShowTitle() => AnsiConsole.MarkupLine("[bold green]Bitbucket Repository List[/]");
 
     private static void ShowDone() => AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
@@ -431,5 +426,10 @@ public sealed class ConsoleApp
 
         return "<1m";
     }
+
+    private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
+    private readonly IPdfReportRenderer _pdfReportRenderer;
+    private readonly IRepoService _repoService;
+    private readonly BitbucketOptions _options;
 
 }
