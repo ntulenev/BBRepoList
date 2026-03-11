@@ -19,6 +19,13 @@ public sealed class PullRequestDetailsOptions
     public int TtfrThresholdHours { get; init; } = 4;
 
     /// <summary>
+    /// Gets or sets minimal pull request description length.
+    /// PRs with empty description or text shorter than this value are marked in reports.
+    /// </summary>
+    [Range(0, 10000)]
+    public int MinimalDescriptionTextLength { get; init; } = 1;
+
+    /// <summary>
     /// Gets or sets maximum number of concurrent repository requests for pull request details loading.
     /// </summary>
     [Range(1, 64)]

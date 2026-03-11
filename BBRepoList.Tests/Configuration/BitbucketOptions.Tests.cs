@@ -35,6 +35,7 @@ public sealed class BitbucketOptionsTests
         options.PullRequestDetails.Should().NotBeNull();
         options.PullRequestDetails.IsEnabled.Should().BeFalse();
         options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
+        options.PullRequestDetails.MinimalDescriptionTextLength.Should().Be(1);
         options.PullRequestDetails.LoadThreshold.Should().Be(8);
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.OpenPullRequestsLoadThreshold.Should().Be(8);
@@ -461,6 +462,35 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("LoadThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when pull request minimal description text length is below zero")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenPullRequestMinimalDescriptionTextLengthIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            PullRequestDetails = new PullRequestDetailsOptions
+            {
+                IsEnabled = true,
+                TtfrThresholdHours = 4,
+                MinimalDescriptionTextLength = -1,
+                LoadThreshold = 8
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("MinimalDescriptionTextLength"));
     }
 
     [Fact(DisplayName = "Validation fails when pull request details load threshold is above sixty four")]

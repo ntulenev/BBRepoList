@@ -145,11 +145,13 @@ public sealed class BitbucketPRApiClientTests
                 Id: 101,
                 Title: "Feature A",
                 CreatedOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+                Description: "Detailed description for Feature A",
                 Author: new PullRequestAuthorDto("{author-1}", "Author 1")),
             new PullRequestDto(
                 Id: 102,
                 Title: "Feature B",
                 CreatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+                Summary: new PullRequestSummaryDto("Summary fallback for Feature B"),
                 Author: new PullRequestAuthorDto("{author-2}", "Author 2"))
         ],
             null);
@@ -244,8 +246,10 @@ public sealed class BitbucketPRApiClientTests
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
         details[0].HasCurrentUserDiscussion.Should().BeTrue();
         details[0].TimeToFirstResponse.Should().Be(TimeSpan.FromHours(2));
+        details[0].DescriptionText.Should().Be("Detailed description for Feature A");
         details[1].FirstNonAuthorActivityOn.Should().BeNull();
         details[1].HasCurrentUserDiscussion.Should().BeFalse();
+        details[1].DescriptionText.Should().Be("Summary fallback for Feature B");
     }
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns empty list when lookup fails")]

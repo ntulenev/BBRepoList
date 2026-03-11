@@ -319,6 +319,8 @@ public sealed class ConsoleAppTests
         // Assert
         detailsCalls.Should().Be(1);
         output.Should().Contain("Open PR details");
+        output.Should().Contain("Descrip");
+        output.Should().Contain("len");
         output.Should().Contain("TTFR");
         output.Should().NotContain("Alert");
         output.Should().Contain("Yes");
@@ -387,6 +389,70 @@ public sealed class ConsoleAppTests
 
         // Assert
         output.Should().Contain("ALERT");
+    }
+
+    [Fact(DisplayName = "RunAsync renders description length column and actual value for open PR details")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenPullRequestDescriptionIsShortShowsDescriptionLengthColumn()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var prOpenedOn = new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero);
+
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                CreateRepositoryWithOpenPullRequestsCount("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1")
+            ]);
+        repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
+                It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
+                new BitbucketId("{uuid}"),
+                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new PullRequestDetail(
+                    new Repository("Repo-1", repoCreatedOn, null, "repo-1"),
+                    101,
+                    "Short description",
+                    prOpenedOn,
+                    new BitbucketId("{author}"),
+                    prOpenedOn.AddHours(1),
+                    hasCurrentUserDiscussion: false,
+                    descriptionText: "short")
+            ]);
+
+        var options = Options.Create(CreateOptions(
+            prDetailsEnabled: true,
+            ttfrThresholdHours: 4,
+            minimalDescriptionTextLength: 15));
+        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        output.Should().Contain("Descrip");
+        output.Should().Contain("len");
+        output.Should().Contain("Short");
+        output.Should().Contain("5");
     }
 
     [Fact(DisplayName = "RunAsync renders abandoned repositories table when inactivity is above threshold")]
@@ -558,6 +624,7 @@ public sealed class ConsoleAppTests
         bool loadAbandonedRepositoriesStatistics = true,
         bool prDetailsEnabled = false,
         int ttfrThresholdHours = 4,
+        int minimalDescriptionTextLength = 1,
         RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains)
     {
         return new BitbucketOptions
@@ -576,7 +643,8 @@ public sealed class ConsoleAppTests
             PullRequestDetails = new PullRequestDetailsOptions
             {
                 IsEnabled = prDetailsEnabled,
-                TtfrThresholdHours = ttfrThresholdHours
+                TtfrThresholdHours = ttfrThresholdHours,
+                MinimalDescriptionTextLength = minimalDescriptionTextLength
             },
             AbandonedMonthsThreshold = abandonedMonthsThreshold,
             LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics,

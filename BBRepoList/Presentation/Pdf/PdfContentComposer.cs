@@ -28,6 +28,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             reportData.PullRequestDetails,
             reportData.Workspace,
             reportData.TtfrThresholdHours,
+            reportData.MinimalDescriptionTextLength,
             reportData.GeneratedAt);
         ComposeAbandonedRepositoriesSection(
             column,
@@ -171,6 +172,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
         IReadOnlyList<PullRequestDetail> pullRequestDetails,
         string workspace,
         int ttfrThresholdHours,
+        int minimalDescriptionTextLength,
         DateTimeOffset generatedAt)
     {
         if (pullRequestDetails.Count == 0)
@@ -190,11 +192,12 @@ public sealed class PdfContentComposer : IPdfContentComposer
             table.ColumnsDefinition(columns =>
             {
                 columns.ConstantColumn(24);
-                columns.RelativeColumn(2.1f);
-                columns.RelativeColumn(2.5f);
-                columns.RelativeColumn(1.3f);
-                columns.RelativeColumn(1.1f);
+                columns.RelativeColumn(2f);
+                columns.RelativeColumn(2.3f);
                 columns.RelativeColumn(1f);
+                columns.RelativeColumn(1.2f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(0.9f);
             });
 
@@ -203,6 +206,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("#");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Repository");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("PR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Description len");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
@@ -221,6 +225,9 @@ public sealed class PdfContentComposer : IPdfContentComposer
                     ? isTtfrPendingOverdue ? "ALERT" : "-"
                     : FormatDuration(ttfr.Value);
                 var discussion = detail.HasCurrentUserDiscussion ? "\U0001F4AC Yes" : "-";
+                var descriptionLength = detail.DescriptionText?.Length ?? 0;
+                var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
+                var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
                 var pullRequestText = $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}";
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
                 var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
@@ -245,6 +252,12 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(pullRequestText);
 
+                _ = isDescriptionShort
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
+                        .Text(descriptionLengthText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(descriptionLengthText);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openedOn);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openFor);
                 _ = isTtfrPendingOverdue

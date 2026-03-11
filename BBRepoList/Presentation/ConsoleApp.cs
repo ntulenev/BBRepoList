@@ -292,12 +292,14 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository[/]"))
             .AddColumn(new TableColumn("[green]PR[/]"))
+            .AddColumn(new TableColumn("[green]Description len[/]"))
             .AddColumn(new TableColumn("[green]Opened on[/]"))
             .AddColumn(new TableColumn("[green]Open for[/]"))
             .AddColumn(new TableColumn("[green]TTFR[/]"))
             .AddColumn(new TableColumn("[green]My Comments[/]"));
 
         var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
+        var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
         var asOf = DateTimeOffset.UtcNow;
 
         for (var i = 0; i < pullRequestDetails.Count; i++)
@@ -314,12 +316,18 @@ public sealed class ConsoleApp
                     ? "[red]ALERT[/]"
                     : "-";
             var discussion = detail.HasCurrentUserDiscussion ? "[yellow]Yes[/]" : "-";
-            var pullRequestText = $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}";
+            var pullRequestText = Markup.Escape(
+                $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}");
+            var descriptionLength = detail.DescriptionText?.Length ?? 0;
+            var descriptionLengthCell = detail.HasShortOrMissingDescription(minimalDescriptionTextLength)
+                ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
+                : descriptionLength.ToString(CultureInfo.InvariantCulture);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
                 Markup.Escape(detail.RepositoryName),
-                Markup.Escape(pullRequestText),
+                pullRequestText,
+                descriptionLengthCell,
                 Markup.Escape(openedOn),
                 Markup.Escape(openFor),
                 ttfrCell,
@@ -389,6 +397,7 @@ public sealed class ConsoleApp
             _options.AbandonedMonthsThreshold,
             _options.LoadAbandonedRepositoriesStatistics,
             _options.PullRequestDetails.TtfrThresholdHours,
+            _options.PullRequestDetails.MinimalDescriptionTextLength,
             DateTimeOffset.Now,
             repositories,
             pullRequestDetails);

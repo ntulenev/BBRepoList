@@ -13,6 +13,7 @@ public sealed class RepositoryPdfReportData
     /// <param name="abandonedMonthsThreshold">Abandoned repository threshold in months.</param>
     /// <param name="loadAbandonedRepositoriesStatistics">Whether abandoned repositories statistics should be included.</param>
     /// <param name="ttfrThresholdHours">TTFR threshold in hours.</param>
+    /// <param name="minimalDescriptionTextLength">Minimal pull request description text length.</param>
     /// <param name="generatedAt">Generation timestamp.</param>
     /// <param name="repositories">Repositories included in report.</param>
     /// <param name="pullRequestDetails">Open pull request details report rows.</param>
@@ -22,6 +23,7 @@ public sealed class RepositoryPdfReportData
         int abandonedMonthsThreshold,
         bool loadAbandonedRepositoriesStatistics,
         int ttfrThresholdHours,
+        int minimalDescriptionTextLength,
         DateTimeOffset generatedAt,
         IReadOnlyList<Repository> repositories,
         IReadOnlyList<PullRequestDetail> pullRequestDetails)
@@ -35,6 +37,7 @@ public sealed class RepositoryPdfReportData
         AbandonedMonthsThreshold = abandonedMonthsThreshold;
         LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics;
         TtfrThresholdHours = ttfrThresholdHours;
+        MinimalDescriptionTextLength = minimalDescriptionTextLength;
         GeneratedAt = generatedAt;
         Repositories = repositories;
         PullRequestDetails = pullRequestDetails;
@@ -74,6 +77,11 @@ public sealed class RepositoryPdfReportData
     /// TTFR threshold in hours.
     /// </summary>
     public int TtfrThresholdHours { get; }
+
+    /// <summary>
+    /// Minimal pull request description text length.
+    /// </summary>
+    public int MinimalDescriptionTextLength { get; }
 
     /// <summary>
     /// Open pull request details report rows.

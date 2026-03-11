@@ -15,6 +15,7 @@ public sealed class PullRequestDetail
     /// <param name="authorId">Pull request author identifier.</param>
     /// <param name="firstNonAuthorActivityOn">First activity timestamp by non-author.</param>
     /// <param name="hasCurrentUserDiscussion">Whether current authenticated user has commented in activity.</param>
+    /// <param name="descriptionText">Pull request description text.</param>
     public PullRequestDetail(
         Repository repository,
         int pullRequestId,
@@ -22,7 +23,8 @@ public sealed class PullRequestDetail
         DateTimeOffset openedOn,
         BitbucketId? authorId,
         DateTimeOffset? firstNonAuthorActivityOn,
-        bool hasCurrentUserDiscussion)
+        bool hasCurrentUserDiscussion,
+        string? descriptionText = null)
     {
         ArgumentNullException.ThrowIfNull(repository);
 
@@ -40,6 +42,7 @@ public sealed class PullRequestDetail
         PullRequestId = pullRequestId;
         Title = title.Trim();
         OpenedOn = openedOn;
+        DescriptionText = string.IsNullOrWhiteSpace(descriptionText) ? null : descriptionText.Trim();
         AuthorId = authorId;
         FirstNonAuthorActivityOn = firstNonAuthorActivityOn;
         HasCurrentUserDiscussion = hasCurrentUserDiscussion;
@@ -81,6 +84,11 @@ public sealed class PullRequestDetail
     public DateTimeOffset OpenedOn { get; }
 
     /// <summary>
+    /// Pull request description text.
+    /// </summary>
+    public string? DescriptionText { get; }
+
+    /// <summary>
     /// Pull request author identifier.
     /// </summary>
     public BitbucketId? AuthorId { get; }
@@ -110,4 +118,22 @@ public sealed class PullRequestDetail
     /// <returns>Non-negative open duration.</returns>
     public TimeSpan GetOpenDuration(DateTimeOffset asOf) =>
         TimeSpan.FromTicks(Math.Max((asOf - OpenedOn).Ticks, 0));
+
+    /// <summary>
+    /// Returns whether pull request description length is below minimal required length.
+    /// </summary>
+    /// <param name="minimalDescriptionTextLength">Minimal allowed description length.</param>
+    /// <returns><see langword="true"/> when description should be marked.</returns>
+    public bool HasShortOrMissingDescription(int minimalDescriptionTextLength)
+    {
+        if (minimalDescriptionTextLength < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minimalDescriptionTextLength),
+                "Minimal description length cannot be negative.");
+        }
+
+        var descriptionLength = DescriptionText?.Length ?? 0;
+        return descriptionLength < minimalDescriptionTextLength;
+    }
 }

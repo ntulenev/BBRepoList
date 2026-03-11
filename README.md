@@ -9,7 +9,7 @@ It supports:
 - Name filtering (`Contains` or `StartWith`, case-insensitive; `Contains` is default)
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
-- Optional open PR details report (`TTFR`, `Open for`, my comments marker)
+- Optional open PR details report (`TTFR`, `Open for`, `Description len`, my comments marker)
 - Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
 - PDF report export (QuestPDF)
 
@@ -39,6 +39,7 @@ Example:
     "PullRequestDetails": {
       "IsEnabled": false,
       "TtfrThresholdHours": 4,
+      "MinimalDescriptionTextLength": 1,
       "LoadThreshold": 4
     },
     "AbandonedMonthsThreshold": 12,
@@ -61,6 +62,7 @@ Settings:
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.
 - `PullRequestDetails.TtfrThresholdHours`: TTFR threshold in hours. When no first non-author response exists and open PR age exceeds this value, TTFR cell shows red `ALERT`. Default: `4`.
+- `PullRequestDetails.MinimalDescriptionTextLength`: Minimal PR description text length. In `Description len` column, values below this threshold are shown in red. Default: `1`.
 - `PullRequestDetails.LoadThreshold`: Max number of concurrent repository requests when loading open PR details report. Default: `8`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
@@ -72,6 +74,7 @@ The app renders:
 - `Repositories with open pull requests` table (shown only when at least one repo has open PRs), ordered by `Created on` (oldest -> newest).
 - `Open PR details` table (shown only when `PullRequestDetails.IsEnabled` and open PRs exist), ordered by `Opened on` (newest -> oldest), including:
 - `Open for` (time from PR creation until now)
+- `Description len` (actual PR description length; red when length is below configured minimum)
 - `TTFR` (time to first real non-author activity; red `ALERT` when there is still no first non-author activity after threshold)
 - `My Comments` (`Yes` when current authenticated user has comments in PR activity)
 - `Abandoned repositories` table (shown only when `LoadAbandonedRepositoriesStatistics` is enabled and inactivity is above the configured threshold), including:

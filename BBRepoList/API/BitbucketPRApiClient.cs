@@ -109,7 +109,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.CreatedOn,
                     pullRequest.AuthorId,
                     firstNonAuthorActivityOn,
-                    hasCurrentUserDiscussion));
+                    hasCurrentUserDiscussion,
+                    pullRequest.DescriptionText));
             }
         }
         catch (HttpRequestException)
@@ -149,6 +150,9 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
                     ? parsedAuthorId
                     : (BitbucketId?)null;
+                var descriptionText = string.IsNullOrWhiteSpace(pullRequestDto.Description)
+                    ? pullRequestDto.Summary?.Raw
+                    : pullRequestDto.Description;
 
                 pullRequests.Add(new OpenPullRequest(
                     pullRequestDto.Id.Value,
@@ -156,6 +160,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                         ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
                         : pullRequestDto.Title.Trim(),
                     pullRequestDto.CreatedOn.Value,
+                    descriptionText,
                     authorId));
             }
 
