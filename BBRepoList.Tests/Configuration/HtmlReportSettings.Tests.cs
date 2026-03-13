@@ -18,6 +18,7 @@ public sealed class HtmlReportSettingsTests
         // Assert
         settings.Enabled.Should().BeTrue();
         settings.OutputPath.Should().Be("bbrepolist-open-pr-details.html");
+        settings.OpenInBrowser.Should().BeFalse();
     }
 
     [Fact(DisplayName = "ResolveOutputPath returns absolute dated path")]

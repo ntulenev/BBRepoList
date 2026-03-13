@@ -48,6 +48,7 @@ builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
 builder.Services.AddTransient<IRepoService, RepositoryService>();
 builder.Services.AddTransient<IHtmlContentComposer, HtmlContentComposer>();
 builder.Services.AddTransient<IHtmlReportFileStore, HtmlReportFileStore>();
+builder.Services.AddTransient<IHtmlReportLauncher, HtmlReportLauncher>();
 builder.Services.AddTransient<IHtmlReportRenderer, HtmlReportRenderer>();
 builder.Services.AddTransient<IPdfContentComposer, PdfContentComposer>();
 builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();

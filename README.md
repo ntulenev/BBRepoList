@@ -37,7 +37,8 @@ Example:
     },
     "Html": {
       "Enabled": true,
-      "OutputPath": "bbrepolist-open-pr-details.html"
+      "OutputPath": "bbrepolist-open-pr-details.html",
+      "OpenInBrowser": false
     },
     "LoadOpenPullRequestsStatistics": true,
     "OpenPullRequestsLoadThreshold": 4,
@@ -65,6 +66,7 @@ Settings:
 - `Pdf.OutputPath`: PDF file path (date suffix is added automatically).
 - `Html.Enabled`: Enables/disables HTML report generation. Default: `true`.
 - `Html.OutputPath`: HTML file path for the open PR details report (date suffix is added automatically).
+- `Html.OpenInBrowser`: Opens generated HTML report in the default browser after save. Default: `false`.
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.

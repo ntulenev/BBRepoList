@@ -14,10 +14,12 @@ public sealed record HtmlReportSettings
     /// </summary>
     /// <param name="enabled">Whether HTML generation is enabled.</param>
     /// <param name="outputPath">Configured output path.</param>
-    public HtmlReportSettings(bool enabled = true, string? outputPath = null)
+    /// <param name="openInBrowser">Whether generated HTML should be opened in the default browser.</param>
+    public HtmlReportSettings(bool enabled = true, string? outputPath = null, bool openInBrowser = false)
     {
         Enabled = enabled;
         OutputPath = string.IsNullOrWhiteSpace(outputPath) ? DEFAULT_OUTPUT_PATH : outputPath.Trim();
+        OpenInBrowser = openInBrowser;
     }
 
     /// <summary>
@@ -29,6 +31,11 @@ public sealed record HtmlReportSettings
     /// Gets configured output path.
     /// </summary>
     public string OutputPath { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether generated HTML should be opened in the default browser.
+    /// </summary>
+    public bool OpenInBrowser { get; }
 
     /// <summary>
     /// Resolves output path to absolute path and appends date suffix.
