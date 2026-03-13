@@ -11,5 +11,6 @@ public sealed record PullRequestDto(
     [property: JsonPropertyName("created_on")] DateTimeOffset? CreatedOn = null,
     [property: JsonPropertyName("description")] string? Description = null,
     [property: JsonPropertyName("summary")] PullRequestSummaryDto? Summary = null,
-    [property: JsonPropertyName("author")] PullRequestAuthorDto? Author = null
+    [property: JsonPropertyName("author")] PullRequestAuthorDto? Author = null,
+    [property: JsonPropertyName("participants")] ICollection<PullRequestParticipantDto>? Participants = null
 );

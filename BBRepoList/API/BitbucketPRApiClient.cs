@@ -90,6 +90,11 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     repositorySlug,
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
+                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) = await GetPullRequestReviewStateAsync(
+                    repositorySlug,
+                    pullRequest.Id,
+                    currentUserId,
+                    cancellationToken).ConfigureAwait(false);
 
                 var firstNonAuthorActivityOn = activities
                     .Where(activity => pullRequest.AuthorId is null
@@ -110,7 +115,11 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.AuthorId,
                     firstNonAuthorActivityOn,
                     hasCurrentUserDiscussion,
-                    pullRequest.DescriptionText));
+                    pullRequest.DescriptionText,
+                    requestChangesCount,
+                    hasCurrentUserRequestChanges,
+                    approvalsCount,
+                    hasCurrentUserApproval));
             }
         }
         catch (HttpRequestException)
@@ -212,6 +221,74 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
     }
+
+    private async Task<(int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)> GetPullRequestReviewStateAsync(
+        string repositorySlug,
+        int pullRequestId,
+        BitbucketId currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var escapedSlug = Uri.EscapeDataString(repositorySlug);
+        var url = new Uri(
+            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests/{pullRequestId}",
+            UriKind.Relative);
+
+        try
+        {
+            var pullRequest = await _transport.GetAsync<PullRequestDto>(url, cancellationToken).ConfigureAwait(false);
+            if (pullRequest?.Participants is null || pullRequest.Participants.Count == 0)
+            {
+                return default;
+            }
+
+            var requestChangesCount = 0;
+            var hasCurrentUserRequestChanges = false;
+            var approvalsCount = 0;
+            var hasCurrentUserApproval = false;
+
+            foreach (var participant in pullRequest.Participants)
+            {
+                if (!BitbucketId.TryCreate(participant.User?.Uuid, out var participantId))
+                {
+                    continue;
+                }
+
+                if (IsRequestChangesState(participant.State))
+                {
+                    requestChangesCount++;
+                    hasCurrentUserRequestChanges |= participantId == currentUserId;
+                }
+
+                if (IsApprovalState(participant))
+                {
+                    approvalsCount++;
+                    hasCurrentUserApproval |= participantId == currentUserId;
+                }
+            }
+
+            return (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval);
+        }
+        catch (HttpRequestException)
+        {
+            return default;
+        }
+    }
+
+    private static bool IsRequestChangesState(string? state) =>
+        state is not null
+        && (state.Equals("changes_requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("changes requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("changes-requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("requested_changes", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("request_changes", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("needs_work", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("needs work", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsApprovalState(PullRequestParticipantDto participant) =>
+        participant.Approved == true
+        || (participant.State is not null
+            && participant.State.Equals("approved", StringComparison.OrdinalIgnoreCase));
+
     private readonly IBitbucketTransport _transport;
     private readonly IBitbucketJsonParser _jsonParser;
     private readonly BitbucketOptions _options;

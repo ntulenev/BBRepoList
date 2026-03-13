@@ -16,6 +16,10 @@ public sealed class PullRequestDetail
     /// <param name="firstNonAuthorActivityOn">First activity timestamp by non-author.</param>
     /// <param name="hasCurrentUserDiscussion">Whether current authenticated user has commented in activity.</param>
     /// <param name="descriptionText">Pull request description text.</param>
+    /// <param name="requestChangesCount">Active request changes count for the pull request.</param>
+    /// <param name="hasCurrentUserRequestChanges">Whether current authenticated user currently requests changes.</param>
+    /// <param name="approvalsCount">Active approvals count for the pull request.</param>
+    /// <param name="hasCurrentUserApproval">Whether current authenticated user currently approves the pull request.</param>
     public PullRequestDetail(
         Repository repository,
         int pullRequestId,
@@ -24,7 +28,11 @@ public sealed class PullRequestDetail
         BitbucketId? authorId,
         DateTimeOffset? firstNonAuthorActivityOn,
         bool hasCurrentUserDiscussion,
-        string? descriptionText = null)
+        string? descriptionText = null,
+        int requestChangesCount = 0,
+        bool hasCurrentUserRequestChanges = false,
+        int approvalsCount = 0,
+        bool hasCurrentUserApproval = false)
     {
         ArgumentNullException.ThrowIfNull(repository);
 
@@ -38,6 +46,20 @@ public sealed class PullRequestDetail
             throw new ArgumentException("Pull request title cannot be empty.", nameof(title));
         }
 
+        if (requestChangesCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(requestChangesCount),
+                "Request changes count cannot be negative.");
+        }
+
+        if (approvalsCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(approvalsCount),
+                "Approvals count cannot be negative.");
+        }
+
         Repository = repository;
         PullRequestId = pullRequestId;
         Title = title.Trim();
@@ -46,6 +68,10 @@ public sealed class PullRequestDetail
         AuthorId = authorId;
         FirstNonAuthorActivityOn = firstNonAuthorActivityOn;
         HasCurrentUserDiscussion = hasCurrentUserDiscussion;
+        RequestChangesCount = requestChangesCount;
+        HasCurrentUserRequestChanges = requestChangesCount > 0 && hasCurrentUserRequestChanges;
+        ApprovalsCount = approvalsCount;
+        HasCurrentUserApproval = approvalsCount > 0 && hasCurrentUserApproval;
     }
 
     /// <summary>
@@ -104,6 +130,26 @@ public sealed class PullRequestDetail
     public bool HasCurrentUserDiscussion { get; }
 
     /// <summary>
+    /// Gets the number of active reviewers who currently request changes.
+    /// </summary>
+    public int RequestChangesCount { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether current authenticated user currently requests changes.
+    /// </summary>
+    public bool HasCurrentUserRequestChanges { get; }
+
+    /// <summary>
+    /// Gets the number of active reviewers who currently approve the pull request.
+    /// </summary>
+    public int ApprovalsCount { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether current authenticated user currently approves the pull request.
+    /// </summary>
+    public bool HasCurrentUserApproval { get; }
+
+    /// <summary>
     /// Gets TTFR value computed as the period from PR opening to first non-author activity.
     /// </summary>
     public TimeSpan? TimeToFirstResponse =>
@@ -136,4 +182,26 @@ public sealed class PullRequestDetail
         var descriptionLength = DescriptionText?.Length ?? 0;
         return descriptionLength < minimalDescriptionTextLength;
     }
+
+    /// <summary>
+    /// Formats current request changes status for presentation.
+    /// </summary>
+    /// <returns>Summary text or <c>-</c> when there are no active request changes.</returns>
+    public string RequestChangesDisplayText =>
+        RequestChangesCount == 0
+            ? "-"
+            : HasCurrentUserRequestChanges
+                ? $"RC ({RequestChangesCount}) (my)"
+                : $"RC ({RequestChangesCount})";
+
+    /// <summary>
+    /// Formats current approval status for presentation.
+    /// </summary>
+    /// <returns>Summary text or <c>-</c> when there are no active approvals.</returns>
+    public string ApprovalsDisplayText =>
+        ApprovalsCount == 0
+            ? "-"
+            : HasCurrentUserApproval
+                ? $"AP ({ApprovalsCount}) (my)"
+                : $"AP ({ApprovalsCount})";
 }

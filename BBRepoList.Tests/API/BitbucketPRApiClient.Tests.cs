@@ -136,7 +136,9 @@ public sealed class BitbucketPRApiClientTests
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25";
+        var firstPullRequestUrl = "repositories/workspace/repo-1/pullrequests/101";
         var firstActivityUrl = "repositories/workspace/repo-1/pullrequests/101/activity?pagelen=25";
+        var secondPullRequestUrl = "repositories/workspace/repo-1/pullrequests/102";
         var secondActivityUrl = "repositories/workspace/repo-1/pullrequests/102/activity?pagelen=25";
 
         var pullRequestsDto = new PullRequestPageDto(
@@ -187,6 +189,24 @@ public sealed class BitbucketPRApiClientTests
         ],
             null);
 
+        var firstPullRequestDto = new PullRequestDto(
+            Id: 101,
+            Participants:
+            [
+                new PullRequestParticipantDto(
+                    User: new PullRequestAuthorDto("{reviewer-1}", "Reviewer 1"),
+                    State: "changes_requested"),
+                new PullRequestParticipantDto(
+                    User: new PullRequestAuthorDto("{current-user}", "Current User"),
+                    State: "changes requested"),
+                new PullRequestParticipantDto(
+                    User: new PullRequestAuthorDto("{approver-1}", "Approver 1"),
+                    State: "approved"),
+                new PullRequestParticipantDto(
+                    User: new PullRequestAuthorDto("{current-user}", "Current User"),
+                    Approved: true)
+            ]);
+
         var secondActivityDto = new PullRequestActivityPageDto(
         [
             new PullRequestActivityDto
@@ -205,6 +225,15 @@ public sealed class BitbucketPRApiClientTests
         ],
             null);
 
+        var secondPullRequestDto = new PullRequestDto(
+            Id: 102,
+            Participants:
+            [
+                new PullRequestParticipantDto(
+                    User: new PullRequestAuthorDto("{reviewer-2}", "Reviewer 2"),
+                    State: "approved")
+            ]);
+
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
@@ -213,11 +242,23 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ReturnsAsync(pullRequestsDto);
         transport
+            .Setup(t => t.GetAsync<PullRequestDto>(
+                It.Is<Uri>(u => u.ToString() == firstPullRequestUrl),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(firstPullRequestDto);
+        transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == firstActivityUrl),
                 It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(firstActivityDto);
+        transport
+            .Setup(t => t.GetAsync<PullRequestDto>(
+                It.Is<Uri>(u => u.ToString() == secondPullRequestUrl),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(secondPullRequestDto);
         transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == secondActivityUrl),
@@ -240,15 +281,23 @@ public sealed class BitbucketPRApiClientTests
             cts.Token);
 
         // Assert
-        sendCalls.Should().Be(3);
+        sendCalls.Should().Be(5);
         details.Should().HaveCount(2);
         details.Select(d => d.PullRequestId).Should().ContainInOrder(101, 102);
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
         details[0].HasCurrentUserDiscussion.Should().BeTrue();
+        details[0].RequestChangesCount.Should().Be(2);
+        details[0].HasCurrentUserRequestChanges.Should().BeTrue();
+        details[0].ApprovalsCount.Should().Be(2);
+        details[0].HasCurrentUserApproval.Should().BeTrue();
         details[0].TimeToFirstResponse.Should().Be(TimeSpan.FromHours(2));
         details[0].DescriptionText.Should().Be("Detailed description for Feature A");
         details[1].FirstNonAuthorActivityOn.Should().BeNull();
         details[1].HasCurrentUserDiscussion.Should().BeFalse();
+        details[1].RequestChangesCount.Should().Be(0);
+        details[1].HasCurrentUserRequestChanges.Should().BeFalse();
+        details[1].ApprovalsCount.Should().Be(1);
+        details[1].HasCurrentUserApproval.Should().BeFalse();
         details[1].DescriptionText.Should().Be("Summary fallback for Feature B");
     }
 

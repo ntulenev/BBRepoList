@@ -296,6 +296,8 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]Opened on[/]"))
             .AddColumn(new TableColumn("[green]Open for[/]"))
             .AddColumn(new TableColumn("[green]TTFR[/]"))
+            .AddColumn(new TableColumn("[green]RC[/]"))
+            .AddColumn(new TableColumn("[green]AP[/]"))
             .AddColumn(new TableColumn("[green]My Comments[/]"));
 
         var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
@@ -322,6 +324,8 @@ public sealed class ConsoleApp
             var descriptionLengthCell = detail.HasShortOrMissingDescription(minimalDescriptionTextLength)
                 ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
                 : descriptionLength.ToString(CultureInfo.InvariantCulture);
+            var requestChangesText = Markup.Escape(detail.RequestChangesDisplayText);
+            var approvalsText = Markup.Escape(detail.ApprovalsDisplayText);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -331,6 +335,8 @@ public sealed class ConsoleApp
                 Markup.Escape(openedOn),
                 Markup.Escape(openFor),
                 ttfrCell,
+                requestChangesText,
+                approvalsText,
                 discussion);
         }
 

@@ -199,6 +199,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(1f);
             });
 
             table.Header(header =>
@@ -210,6 +212,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("My comments");
             });
 
@@ -229,6 +233,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
                 var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
                 var pullRequestText = $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}";
+                var requestChangesText = detail.RequestChangesDisplayText;
+                var approvalsText = detail.ApprovalsDisplayText;
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
                 var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
                     workspace,
@@ -266,6 +272,18 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
                         .Text(ttfrText)
                     : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(ttfrText);
+                _ = detail.RequestChangesCount > 0
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Orange.Darken2))
+                        .Text(requestChangesText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(requestChangesText);
+                _ = detail.ApprovalsCount > 0
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Green.Darken2))
+                        .Text(approvalsText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(approvalsText);
                 _ = detail.HasCurrentUserDiscussion
                     ? table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)

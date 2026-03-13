@@ -302,7 +302,11 @@ public sealed class ConsoleAppTests
                     prOpenedOn,
                     new BitbucketId("{author}"),
                     prOpenedOn.AddHours(5),
-                    true)
+                    true,
+                    requestChangesCount: 3,
+                    hasCurrentUserRequestChanges: true,
+                    approvalsCount: 2,
+                    hasCurrentUserApproval: true)
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
@@ -319,12 +323,16 @@ public sealed class ConsoleAppTests
         // Assert
         detailsCalls.Should().Be(1);
         output.Should().Contain("Open PR details");
-        output.Should().Contain("Descrip");
         output.Should().Contain("len");
         output.Should().Contain("TTFR");
+        output.Should().Contain("RC");
+        output.Should().Contain("AP");
+        output.Should().Contain("(3)");
+        output.Should().Contain("(2)");
+        output.Should().Contain("(my)");
         output.Should().NotContain("Alert");
         output.Should().Contain("Yes");
-        output.Should().Contain("Feature");
+        output.Should().Contain("Featur");
     }
 
     [Fact(DisplayName = "RunAsync shows TTFR alert when first non-author response is missing over threshold")]
@@ -449,7 +457,6 @@ public sealed class ConsoleAppTests
         });
 
         // Assert
-        output.Should().Contain("Descrip");
         output.Should().Contain("len");
         output.Should().Contain("Short");
         output.Should().Contain("5");
