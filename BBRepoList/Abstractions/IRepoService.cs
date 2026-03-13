@@ -1,4 +1,4 @@
-﻿using BBRepoList.Models;
+using BBRepoList.Models;
 
 namespace BBRepoList.Abstractions;
 

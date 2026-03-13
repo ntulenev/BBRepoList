@@ -90,7 +90,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     repositorySlug,
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
-                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) = await GetPullRequestReviewStateAsync(
+                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
+                    await GetPullRequestReviewStateAsync(
                     repositorySlug,
                     pullRequest.Id,
                     currentUserId,
@@ -227,7 +228,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
     }
 
-    private async Task<(int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)> GetPullRequestReviewStateAsync(
+    private async Task<(int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)>
+        GetPullRequestReviewStateAsync(
         string repositorySlug,
         int pullRequestId,
         BitbucketId currentUserId,
@@ -258,13 +260,13 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
-                if (IsRequestChangesState(participant.State))
+                if (_jsonParser.IsRequestChangesState(participant.State))
                 {
                     requestChangesCount++;
                     hasCurrentUserRequestChanges |= participantId == currentUserId;
                 }
 
-                if (IsApprovalState(participant))
+                if (_jsonParser.IsApprovalState(participant))
                 {
                     approvalsCount++;
                     hasCurrentUserApproval |= participantId == currentUserId;
@@ -278,21 +280,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
             return default;
         }
     }
-
-    private static bool IsRequestChangesState(string? state) =>
-        state is not null
-        && (state.Equals("changes_requested", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("changes requested", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("changes-requested", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("requested_changes", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("request_changes", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("needs_work", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("needs work", StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsApprovalState(PullRequestParticipantDto participant) =>
-        participant.Approved == true
-        || (participant.State is not null
-            && participant.State.Equals("approved", StringComparison.OrdinalIgnoreCase));
 
     private readonly IBitbucketTransport _transport;
     private readonly IBitbucketJsonParser _jsonParser;

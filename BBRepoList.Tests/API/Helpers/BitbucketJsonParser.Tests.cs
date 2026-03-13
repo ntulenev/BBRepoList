@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using BBRepoList.API.Helpers;
 using BBRepoList.Models;
+using BBRepoList.Transport;
 
 using FluentAssertions;
 
@@ -192,6 +193,112 @@ public sealed class BitbucketJsonParserTests
 
         // Act
         Action act = () => parser.AddActivityEntriesFromJson(element, isCommentContext: false, onEntry);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Theory(DisplayName = "IsRequestChangesState recognizes supported request-changes variants")]
+    [InlineData("changes_requested")]
+    [InlineData("changes requested")]
+    [InlineData("changes-requested")]
+    [InlineData("requested_changes")]
+    [InlineData("request_changes")]
+    [InlineData("needs_work")]
+    [InlineData("needs work")]
+    [InlineData("CHANGES_REQUESTED")]
+    [Trait("Category", "Unit")]
+    public void IsRequestChangesStateWhenStateMatchesSupportedVariantReturnsTrue(string state)
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+
+        // Act
+        var result = parser.IsRequestChangesState(state);
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Theory(DisplayName = "IsRequestChangesState returns false for unsupported values")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("approved")]
+    [InlineData("commented")]
+    [Trait("Category", "Unit")]
+    public void IsRequestChangesStateWhenStateDoesNotMatchReturnsFalse(string? state)
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+
+        // Act
+        var result = parser.IsRequestChangesState(state);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "IsApprovalState returns true when approved flag is set")]
+    [Trait("Category", "Unit")]
+    public void IsApprovalStateWhenApprovedFlagIsSetReturnsTrue()
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+        var participant = new PullRequestParticipantDto(
+            User: new PullRequestAuthorDto("{user-1}", "User 1"),
+            Approved: true);
+
+        // Act
+        var result = parser.IsApprovalState(participant);
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "IsApprovalState returns true when state is approved")]
+    [Trait("Category", "Unit")]
+    public void IsApprovalStateWhenStateIsApprovedReturnsTrue()
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+        var participant = new PullRequestParticipantDto(
+            User: new PullRequestAuthorDto("{user-1}", "User 1"),
+            State: "approved");
+
+        // Act
+        var result = parser.IsApprovalState(participant);
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "IsApprovalState returns false when participant is not approved")]
+    [Trait("Category", "Unit")]
+    public void IsApprovalStateWhenParticipantIsNotApprovedReturnsFalse()
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+        var participant = new PullRequestParticipantDto(
+            User: new PullRequestAuthorDto("{user-1}", "User 1"),
+            State: "changes_requested");
+
+        // Act
+        var result = parser.IsApprovalState(participant);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "IsApprovalState throws when participant is null")]
+    [Trait("Category", "Unit")]
+    public void IsApprovalStateWhenParticipantIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var parser = new BitbucketJsonParser();
+        PullRequestParticipantDto participant = null!;
+
+        // Act
+        Action act = () => _ = parser.IsApprovalState(participant);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();

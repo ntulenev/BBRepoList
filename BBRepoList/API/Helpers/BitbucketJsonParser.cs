@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Models;
+using BBRepoList.Transport;
 
 namespace BBRepoList.API.Helpers;
 
@@ -106,6 +107,27 @@ public sealed class BitbucketJsonParser : IBitbucketJsonParser
                 AddActivityEntriesFromJson(item, isCommentContext, onEntry);
             }
         }
+    }
+
+    /// <inheritdoc />
+    public bool IsRequestChangesState(string? state) =>
+        state is not null
+        && (state.Equals("changes_requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("changes requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("changes-requested", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("requested_changes", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("request_changes", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("needs_work", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("needs work", StringComparison.OrdinalIgnoreCase));
+
+    /// <inheritdoc />
+    public bool IsApprovalState(PullRequestParticipantDto participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+
+        return participant.Approved == true
+            || (participant.State is not null
+                && participant.State.Equals("approved", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsDateProperty(string propertyName) =>

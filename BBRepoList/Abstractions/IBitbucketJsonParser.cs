@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using BBRepoList.Models;
+using BBRepoList.Transport;
 
 namespace BBRepoList.Abstractions;
 
@@ -35,4 +36,18 @@ public interface IBitbucketJsonParser
         JsonElement element,
         bool isCommentContext,
         Action<BitbucketId, DateTimeOffset, bool> onEntry);
+
+    /// <summary>
+    /// Determines whether a participant state represents a request for changes.
+    /// </summary>
+    /// <param name="state">Participant review state value.</param>
+    /// <returns><see langword="true" /> when the state indicates changes were requested.</returns>
+    bool IsRequestChangesState(string? state);
+
+    /// <summary>
+    /// Determines whether a participant should be counted as an approval.
+    /// </summary>
+    /// <param name="participant">Pull request participant to inspect.</param>
+    /// <returns><see langword="true" /> when the participant approved the pull request.</returns>
+    bool IsApprovalState(PullRequestParticipantDto participant);
 }
