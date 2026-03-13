@@ -239,8 +239,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
                 var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
                 var pullRequestNumberText = "#" + detail.PullRequestId.ToString(CultureInfo.InvariantCulture);
-                var requestChangesText = detail.RequestChangesDisplayText;
-                var approvalsText = detail.ApprovalsDisplayText;
+                var requestChangesText = PresentationHelpers.FormatRequestChangesText(detail.RequestChangesCount);
+                var approvalsText = PresentationHelpers.FormatApprovalsText(detail.ApprovalsCount);
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
                 var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
                     workspace,

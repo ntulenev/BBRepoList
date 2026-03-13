@@ -333,8 +333,10 @@ public sealed class ConsoleApp
             var descriptionLengthCell = detail.HasShortOrMissingDescription(minimalDescriptionTextLength)
                 ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
                 : descriptionLength.ToString(CultureInfo.InvariantCulture);
-            var requestChangesText = Markup.Escape(detail.RequestChangesDisplayText);
-            var approvalsText = Markup.Escape(detail.ApprovalsDisplayText);
+            var requestChangesText = Markup.Escape(
+                PresentationHelpers.FormatRequestChangesText(detail.RequestChangesCount));
+            var approvalsText = Markup.Escape(
+                PresentationHelpers.FormatApprovalsText(detail.ApprovalsCount));
             var myActivityText = GetMyActivityMarkup(detail);
 
             _ = table.AddRow(

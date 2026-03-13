@@ -571,6 +571,8 @@ $$"""
         var overdueTtfr = ttfr is null && openFor > TimeSpan.FromHours(ttfrThresholdHours);
         var lastActivityAge = detail.GetLastActivityAge(generatedAt);
         var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(detail);
+        var requestChangesText = PresentationHelpers.FormatRequestChangesText(detail.RequestChangesCount);
+        var approvalsText = PresentationHelpers.FormatApprovalsText(detail.ApprovalsCount);
 
         _ = html.AppendLine(
             CultureInfo.InvariantCulture,
@@ -583,8 +585,8 @@ $"""
               <td data-sort="{(long)openFor.TotalMinutes}" data-filter="{HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor))}">{HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor))}</td>
               <td data-sort="{(ttfr is null ? -1 : (long)ttfr.Value.TotalMinutes)}" data-filter="{HtmlPresentationHelpers.Encode(ttfr is null ? (overdueTtfr ? "alert" : "-") : HtmlPresentationHelpers.FormatDuration(ttfr.Value))}">{BuildTtfrCell(ttfr, overdueTtfr)}</td>
               <td data-sort="{(lastActivityAge is null ? -1 : (long)lastActivityAge.Value.TotalMinutes)}" data-filter="{HtmlPresentationHelpers.Encode(lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value))}">{HtmlPresentationHelpers.Encode(lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value))}</td>
-              <td data-sort="{detail.RequestChangesCount}" data-filter="{HtmlPresentationHelpers.Encode(detail.RequestChangesDisplayText)}">{BuildBadge(detail.RequestChangesDisplayText, "rc")}</td>
-              <td data-sort="{detail.ApprovalsCount}" data-filter="{HtmlPresentationHelpers.Encode(detail.ApprovalsDisplayText)}">{BuildBadge(detail.ApprovalsDisplayText, "ap")}</td>
+              <td data-sort="{detail.RequestChangesCount}" data-filter="{HtmlPresentationHelpers.Encode(requestChangesText)}">{BuildBadge(requestChangesText, "rc")}</td>
+              <td data-sort="{detail.ApprovalsCount}" data-filter="{HtmlPresentationHelpers.Encode(approvalsText)}">{BuildBadge(approvalsText, "ap")}</td>
               <td data-sort="{HtmlPresentationHelpers.Encode(myActivityText)}" data-filter="{HtmlPresentationHelpers.Encode(myActivityText)}">{BuildActivityBadge(detail)}</td>
             </tr>
 """);

@@ -202,24 +202,6 @@ public sealed class PullRequestDetail
     }
 
     /// <summary>
-    /// Formats current request changes status for presentation.
-    /// </summary>
-    /// <returns>Summary text or <c>-</c> when there are no active request changes.</returns>
-    public string RequestChangesDisplayText =>
-        RequestChangesCount == 0
-            ? "-"
-            : $"RC ({RequestChangesCount})";
-
-    /// <summary>
-    /// Formats current approval status for presentation.
-    /// </summary>
-    /// <returns>Summary text or <c>-</c> when there are no active approvals.</returns>
-    public string ApprovalsDisplayText =>
-        ApprovalsCount == 0
-            ? "-"
-            : $"AP ({ApprovalsCount})";
-
-    /// <summary>
     /// Gets a value indicating whether current authenticated user has any tracked pull request activity.
     /// </summary>
     public bool HasCurrentUserActivity =>
