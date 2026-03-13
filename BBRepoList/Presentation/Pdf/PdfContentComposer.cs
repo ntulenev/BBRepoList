@@ -199,6 +199,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(1f);
                 columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(1f);
@@ -213,6 +214,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Last Activity");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("My Activity");
@@ -229,6 +231,10 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var ttfrText = ttfr is null
                     ? isTtfrPendingOverdue ? "ALERT" : "-"
                     : FormatDuration(ttfr.Value);
+                var lastActivityAge = detail.GetLastActivityAge(generatedAt);
+                var lastActivityText = lastActivityAge is null
+                    ? "-"
+                    : FormatDuration(lastActivityAge.Value);
                 var descriptionLength = detail.DescriptionText?.Length ?? 0;
                 var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
                 var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
@@ -272,6 +278,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
                         .Text(ttfrText)
                     : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(ttfrText);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(lastActivityText);
                 _ = detail.RequestChangesCount > 0
                     ? table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)

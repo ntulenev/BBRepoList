@@ -393,6 +393,7 @@ public sealed class RepositoryServiceTests
                     new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
                     new BitbucketId("{author-1}"),
                     null,
+                    null,
                     false)
             ]);
         prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repo2, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
@@ -405,6 +406,7 @@ public sealed class RepositoryServiceTests
                     "PR newer",
                     new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero),
                     new BitbucketId("{author-2}"),
+                    null,
                     null,
                     true)
             ]);

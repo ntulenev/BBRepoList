@@ -285,6 +285,7 @@ public sealed class BitbucketPRApiClientTests
         details.Should().HaveCount(2);
         details.Select(d => d.PullRequestId).Should().ContainInOrder(101, 102);
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
+        details[0].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 11, 0, 0, TimeSpan.Zero));
         details[0].HasCurrentUserDiscussion.Should().BeTrue();
         details[0].RequestChangesCount.Should().Be(2);
         details[0].HasCurrentUserRequestChanges.Should().BeTrue();
@@ -293,6 +294,7 @@ public sealed class BitbucketPRApiClientTests
         details[0].TimeToFirstResponse.Should().Be(TimeSpan.FromHours(2));
         details[0].DescriptionText.Should().Be("Detailed description for Feature A");
         details[1].FirstNonAuthorActivityOn.Should().BeNull();
+        details[1].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 30, 0, TimeSpan.Zero));
         details[1].HasCurrentUserDiscussion.Should().BeFalse();
         details[1].RequestChangesCount.Should().Be(0);
         details[1].HasCurrentUserRequestChanges.Should().BeFalse();

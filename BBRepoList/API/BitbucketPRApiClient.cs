@@ -102,6 +102,10 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     .OrderBy(static activity => activity.HappenedOn)
                     .Select(static activity => (DateTimeOffset?)activity.HappenedOn)
                     .FirstOrDefault();
+                var lastActivityOn = activities
+                    .OrderByDescending(static activity => activity.HappenedOn)
+                    .Select(static activity => (DateTimeOffset?)activity.HappenedOn)
+                    .FirstOrDefault();
 
                 var hasCurrentUserDiscussion = activities.Any(activity =>
                     activity.IsComment
@@ -114,6 +118,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.CreatedOn,
                     pullRequest.AuthorId,
                     firstNonAuthorActivityOn,
+                    lastActivityOn,
                     hasCurrentUserDiscussion,
                     pullRequest.DescriptionText,
                     requestChangesCount,

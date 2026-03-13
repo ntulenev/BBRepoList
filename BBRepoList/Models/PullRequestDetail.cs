@@ -14,6 +14,7 @@ public sealed class PullRequestDetail
     /// <param name="openedOn">Pull request creation timestamp.</param>
     /// <param name="authorId">Pull request author identifier.</param>
     /// <param name="firstNonAuthorActivityOn">First activity timestamp by non-author.</param>
+    /// <param name="lastActivityOn">Latest pull request activity timestamp.</param>
     /// <param name="hasCurrentUserDiscussion">Whether current authenticated user has commented in activity.</param>
     /// <param name="descriptionText">Pull request description text.</param>
     /// <param name="requestChangesCount">Active request changes count for the pull request.</param>
@@ -27,6 +28,7 @@ public sealed class PullRequestDetail
         DateTimeOffset openedOn,
         BitbucketId? authorId,
         DateTimeOffset? firstNonAuthorActivityOn,
+        DateTimeOffset? lastActivityOn,
         bool hasCurrentUserDiscussion,
         string? descriptionText = null,
         int requestChangesCount = 0,
@@ -67,6 +69,7 @@ public sealed class PullRequestDetail
         DescriptionText = string.IsNullOrWhiteSpace(descriptionText) ? null : descriptionText.Trim();
         AuthorId = authorId;
         FirstNonAuthorActivityOn = firstNonAuthorActivityOn;
+        LastActivityOn = lastActivityOn;
         HasCurrentUserDiscussion = hasCurrentUserDiscussion;
         RequestChangesCount = requestChangesCount;
         HasCurrentUserRequestChanges = requestChangesCount > 0 && hasCurrentUserRequestChanges;
@@ -125,6 +128,11 @@ public sealed class PullRequestDetail
     public DateTimeOffset? FirstNonAuthorActivityOn { get; }
 
     /// <summary>
+    /// Latest pull request activity timestamp.
+    /// </summary>
+    public DateTimeOffset? LastActivityOn { get; }
+
+    /// <summary>
     /// Gets a value indicating whether current authenticated user has commented in activity.
     /// </summary>
     public bool HasCurrentUserDiscussion { get; }
@@ -164,6 +172,16 @@ public sealed class PullRequestDetail
     /// <returns>Non-negative open duration.</returns>
     public TimeSpan GetOpenDuration(DateTimeOffset asOf) =>
         TimeSpan.FromTicks(Math.Max((asOf - OpenedOn).Ticks, 0));
+
+    /// <summary>
+    /// Calculates how long it has been since the latest pull request activity.
+    /// </summary>
+    /// <param name="asOf">Time boundary for calculation.</param>
+    /// <returns>Non-negative duration since last activity, or <see langword="null"/> when no activity exists.</returns>
+    public TimeSpan? GetLastActivityAge(DateTimeOffset asOf) =>
+        LastActivityOn is null
+            ? null
+            : TimeSpan.FromTicks(Math.Max((asOf - LastActivityOn.Value).Ticks, 0));
 
     /// <summary>
     /// Returns whether pull request description length is below minimal required length.

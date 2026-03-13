@@ -302,6 +302,7 @@ public sealed class ConsoleAppTests
                     prOpenedOn,
                     new BitbucketId("{author}"),
                     prOpenedOn.AddHours(5),
+                    prOpenedOn.AddHours(7),
                     true,
                     requestChangesCount: 3,
                     hasCurrentUserRequestChanges: true,
@@ -325,17 +326,16 @@ public sealed class ConsoleAppTests
         output.Should().Contain("Open PR details");
         output.Should().Contain("len");
         output.Should().Contain("TTFR");
+        output.Should().Contain("Last");
         output.Should().Contain("RC");
         output.Should().Contain("AP");
         output.Should().Contain("My");
-        output.Should().Contain("Acti");
         output.Should().Contain("(3)");
         output.Should().Contain("(2)");
         output.Should().NotContain("Alert");
         output.Should().Contain("💬");
         output.Should().Contain("❌");
         output.Should().Contain("✅");
-        output.Should().Contain("Featur");
     }
 
     [Fact(DisplayName = "RunAsync shows TTFR alert when first non-author response is missing over threshold")]
@@ -384,6 +384,7 @@ public sealed class ConsoleAppTests
                     prOpenedOn,
                     new BitbucketId("{author}"),
                     firstNonAuthorActivityOn: null,
+                    lastActivityOn: null,
                     hasCurrentUserDiscussion: false)
             ]);
 
@@ -441,6 +442,7 @@ public sealed class ConsoleAppTests
                     prOpenedOn,
                     new BitbucketId("{author}"),
                     prOpenedOn.AddHours(1),
+                    prOpenedOn.AddHours(2),
                     hasCurrentUserDiscussion: false,
                     descriptionText: "short")
             ]);

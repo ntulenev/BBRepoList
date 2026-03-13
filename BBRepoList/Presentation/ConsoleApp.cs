@@ -296,6 +296,7 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]Opened on[/]"))
             .AddColumn(new TableColumn("[green]Open for[/]"))
             .AddColumn(new TableColumn("[green]TTFR[/]"))
+            .AddColumn(new TableColumn("[green]Last Activity[/]"))
             .AddColumn(new TableColumn("[green]RC[/]"))
             .AddColumn(new TableColumn("[green]AP[/]"))
             .AddColumn(new TableColumn("[green]My Activity[/]"));
@@ -317,6 +318,10 @@ public sealed class ConsoleApp
                 : isTtfrPendingOverdue
                     ? "[red]ALERT[/]"
                     : "-";
+            var lastActivityAge = detail.GetLastActivityAge(asOf);
+            var lastActivityCell = lastActivityAge is null
+                ? "-"
+                : Markup.Escape(FormatDuration(lastActivityAge.Value));
             var pullRequestText = Markup.Escape(
                 $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}");
             var descriptionLength = detail.DescriptionText?.Length ?? 0;
@@ -335,6 +340,7 @@ public sealed class ConsoleApp
                 Markup.Escape(openedOn),
                 Markup.Escape(openFor),
                 ttfrCell,
+                lastActivityCell,
                 requestChangesText,
                 approvalsText,
                 myActivityText);
