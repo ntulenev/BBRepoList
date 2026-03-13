@@ -40,11 +40,6 @@ Example:
       "Enabled": true,
       "OutputPath": "bbrepolist-open-pr-details.html"
     },
-    "Demo": {
-      "IsEnabled": false,
-      "Workspace": "Demo Workspace",
-      "UserDisplayName": "Demo Presenter"
-    },
     "LoadOpenPullRequestsStatistics": true,
     "OpenPullRequestsLoadThreshold": 4,
     "PullRequestDetails": {
