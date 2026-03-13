@@ -40,4 +40,9 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+		<EmbeddedResource Include="Presentation\Html\Templates\*.html"
+			LogicalName="BBRepoList.HtmlTemplates.%(Filename)%(Extension)" />
+	</ItemGroup>
+
 </Project>
