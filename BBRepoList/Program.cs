@@ -4,6 +4,7 @@ using BBRepoList.API.Helpers;
 using BBRepoList.Configuration;
 using BBRepoList.Logic;
 using BBRepoList.Presentation;
+using BBRepoList.Presentation.Html;
 using BBRepoList.Presentation.Pdf;
 using BBRepoList.Transport;
 
@@ -45,6 +46,9 @@ builder.Services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>()
 builder.Services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
 builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
 builder.Services.AddTransient<IRepoService, RepositoryService>();
+builder.Services.AddTransient<IHtmlContentComposer, HtmlContentComposer>();
+builder.Services.AddTransient<IHtmlReportFileStore, HtmlReportFileStore>();
+builder.Services.AddTransient<IHtmlReportRenderer, HtmlReportRenderer>();
 builder.Services.AddTransient<IPdfContentComposer, PdfContentComposer>();
 builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
 builder.Services.AddTransient<IPdfReportRenderer, QuestPdfReportRenderer>();

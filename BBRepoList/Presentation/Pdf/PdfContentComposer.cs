@@ -194,7 +194,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             {
                 columns.ConstantColumn(24);
                 columns.RelativeColumn(2f);
-                columns.RelativeColumn(2.3f);
+                columns.RelativeColumn(1.6f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1f);
@@ -238,7 +238,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var descriptionLength = detail.DescriptionText?.Length ?? 0;
                 var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
                 var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
-                var pullRequestText = $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}";
+                var pullRequestNumberText = "#" + detail.PullRequestId.ToString(CultureInfo.InvariantCulture);
                 var requestChangesText = detail.RequestChangesDisplayText;
                 var approvalsText = detail.ApprovalsDisplayText;
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
@@ -256,13 +256,11 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(detail.RepositoryName);
 
-                _ = string.IsNullOrWhiteSpace(pullRequestUrl)
-                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(pullRequestText)
-                    : table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .Hyperlink(pullRequestUrl)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
-                        .Text(pullRequestText);
+                ComposePullRequestCell(
+                    table.Cell().Element(PdfPresentationHelpers.StyleBodyCell),
+                    pullRequestUrl,
+                    pullRequestNumberText,
+                    detail.Title);
 
                 _ = isDescriptionShort
                     ? table.Cell()
@@ -398,6 +396,29 @@ public sealed class PdfContentComposer : IPdfContentComposer
         }
 
         return "<1m";
+    }
+
+    private static void ComposePullRequestCell(
+        IContainer container,
+        string? pullRequestUrl,
+        string pullRequestNumberText,
+        string pullRequestTitle)
+    {
+        ArgumentNullException.ThrowIfNull(container);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pullRequestNumberText);
+        ArgumentNullException.ThrowIfNull(pullRequestTitle);
+
+        var textContainer = string.IsNullOrWhiteSpace(pullRequestUrl)
+            ? container
+            : container
+                .Hyperlink(pullRequestUrl)
+                .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline());
+
+        textContainer.Text(text =>
+        {
+            _ = text.Line(pullRequestNumberText);
+            _ = text.Line(pullRequestTitle);
+        });
     }
 
     private static void ComposeMyActivityCell(IContainer container, PullRequestDetail detail)

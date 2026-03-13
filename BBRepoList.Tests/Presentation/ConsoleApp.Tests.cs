@@ -24,12 +24,32 @@ public sealed class ConsoleAppTests
     {
         // Arrange
         IBitbucketAuthApiClient api = null!;
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when html report renderer is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenHtmlReportRendererIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        IHtmlReportRenderer htmlReportRenderer = null!;
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -42,12 +62,13 @@ public sealed class ConsoleAppTests
     {
         // Arrange
         var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict).Object;
         IPdfReportRenderer pdfReportRenderer = null!;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -60,12 +81,13 @@ public sealed class ConsoleAppTests
     {
         // Arrange
         var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         IRepoService repoService = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -78,12 +100,13 @@ public sealed class ConsoleAppTests
     {
         // Arrange
         var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict).Object;
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
         var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
 
         // Assert
         act.Should()
@@ -98,6 +121,7 @@ public sealed class ConsoleAppTests
         using var cts = new CancellationTokenSource();
         var authCalls = 0;
         var repoCalls = 0;
+        var htmlCalls = 0;
         var pdfCalls = 0;
         var repo1CreatedOn = new DateTimeOffset(2025, 1, 10, 0, 0, 0, TimeSpan.Zero);
         var repo2CreatedOn = new DateTimeOffset(2024, 12, 1, 0, 0, 0, TimeSpan.Zero);
@@ -108,6 +132,17 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .Callback(() => authCalls++)
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)))
+            .Callback(() => htmlCalls++);
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
@@ -137,7 +172,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -150,6 +185,7 @@ public sealed class ConsoleAppTests
         // Assert
         authCalls.Should().Be(1);
         repoCalls.Should().Be(1);
+        htmlCalls.Should().Be(1);
         pdfCalls.Should().Be(1);
         output.Should().Contain("Created on");
         output.Should().Contain("Last updated");
@@ -175,6 +211,16 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 0
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -194,7 +240,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchMode: RepositorySearchMode.StartWith));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         await RunWithTestConsoleAsync(async console =>
         {
@@ -218,6 +264,16 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -240,7 +296,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -267,6 +323,16 @@ public sealed class ConsoleAppTests
         var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.PullRequestDetails.Count == 1
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
@@ -311,7 +377,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -351,6 +417,16 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.PullRequestDetails.Count == 1
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -389,7 +465,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -415,6 +491,9 @@ public sealed class ConsoleAppTests
         var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
@@ -451,7 +530,7 @@ public sealed class ConsoleAppTests
             prDetailsEnabled: true,
             ttfrThresholdHours: 4,
             minimalDescriptionTextLength: 15));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -482,6 +561,15 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -503,7 +591,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -533,6 +621,15 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -554,7 +651,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -582,6 +679,15 @@ public sealed class ConsoleAppTests
         api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 2
+            && data.PullRequestDetails.Count == 0
+            && !data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 12)));
+
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
         pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
             data.Workspace == "workspace"
@@ -605,7 +711,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions(
             abandonedMonthsThreshold: 12,
             loadAbandonedRepositoriesStatistics: false));
-        var app = new ConsoleApp(api.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -651,6 +757,11 @@ public sealed class ConsoleAppTests
             {
                 Enabled = true,
                 OutputPath = "bbrepolist-report.pdf"
+            },
+            Html = new HtmlOptions
+            {
+                Enabled = true,
+                OutputPath = "bbrepolist-open-pr-details.html"
             },
             PullRequestDetails = new PullRequestDetailsOptions
             {

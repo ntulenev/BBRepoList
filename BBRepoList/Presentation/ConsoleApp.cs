@@ -19,20 +19,24 @@ public sealed class ConsoleApp
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
     /// <param name="bitbucketAuthApiClient">Bitbucket auth API client.</param>
+    /// <param name="htmlReportRenderer">HTML report renderer.</param>
     /// <param name="pdfReportRenderer">PDF report renderer.</param>
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
+                      IHtmlReportRenderer htmlReportRenderer,
                       IPdfReportRenderer pdfReportRenderer,
                       IRepoService repoService,
                       IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
+        ArgumentNullException.ThrowIfNull(htmlReportRenderer);
         ArgumentNullException.ThrowIfNull(pdfReportRenderer);
         ArgumentNullException.ThrowIfNull(repoService);
         ArgumentNullException.ThrowIfNull(options);
 
         _bitbucketAuthApiClient = bitbucketAuthApiClient;
+        _htmlReportRenderer = htmlReportRenderer;
         _pdfReportRenderer = pdfReportRenderer;
         _repoService = repoService;
         _options = options.Value;
@@ -67,6 +71,7 @@ public sealed class ConsoleApp
         RenderOpenPullRequestsTableIfAny(sortedRepositories);
         RenderPullRequestDetailsReportIfAny(pullRequestDetails);
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
+        RenderHtmlReport(sortedRepositories, pullRequestDetails, filterPattern);
         RenderPdfReport(sortedRepositories, pullRequestDetails, filterPattern);
         ShowDone();
     }
@@ -291,7 +296,7 @@ public sealed class ConsoleApp
             .Expand()
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository[/]"))
-            .AddColumn(new TableColumn("[green]PR[/]"))
+            .AddColumn(new TableColumn("[green]PR[/]").Width(28))
             .AddColumn(new TableColumn("[green]Description len[/]"))
             .AddColumn(new TableColumn("[green]Opened on[/]"))
             .AddColumn(new TableColumn("[green]Open for[/]"))
@@ -323,7 +328,7 @@ public sealed class ConsoleApp
                 ? "-"
                 : Markup.Escape(FormatDuration(lastActivityAge.Value));
             var pullRequestText = Markup.Escape(
-                $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}");
+                $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)}\n{detail.Title}");
             var descriptionLength = detail.DescriptionText?.Length ?? 0;
             var descriptionLengthCell = detail.HasShortOrMissingDescription(minimalDescriptionTextLength)
                 ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
@@ -417,6 +422,25 @@ public sealed class ConsoleApp
         _pdfReportRenderer.RenderReport(reportData);
     }
 
+    private void RenderHtmlReport(
+        List<Repository> repositories,
+        IReadOnlyList<PullRequestDetail> pullRequestDetails,
+        FilterPattern filterPattern)
+    {
+        var reportData = new RepositoryPdfReportData(
+            _options.Workspace,
+            filterPattern.Phrase,
+            _options.AbandonedMonthsThreshold,
+            _options.LoadAbandonedRepositoriesStatistics,
+            _options.PullRequestDetails.TtfrThresholdHours,
+            _options.PullRequestDetails.MinimalDescriptionTextLength,
+            DateTimeOffset.Now,
+            repositories,
+            pullRequestDetails);
+
+        _htmlReportRenderer.RenderReport(reportData);
+    }
+
     private static string FormatDuration(TimeSpan duration)
     {
         var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
@@ -476,6 +500,7 @@ public sealed class ConsoleApp
     }
 
     private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
+    private readonly IHtmlReportRenderer _htmlReportRenderer;
     private readonly IPdfReportRenderer _pdfReportRenderer;
     private readonly IRepoService _repoService;
     private readonly BitbucketOptions _options;

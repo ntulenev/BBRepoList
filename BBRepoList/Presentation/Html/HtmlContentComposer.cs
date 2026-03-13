@@ -1,0 +1,658 @@
+using System.Globalization;
+using System.Text;
+
+using BBRepoList.Abstractions;
+using BBRepoList.Models;
+
+namespace BBRepoList.Presentation.Html;
+
+/// <summary>
+/// Composes standalone HTML for open pull request analysis.
+/// </summary>
+public sealed class HtmlContentComposer : IHtmlContentComposer
+{
+    /// <inheritdoc />
+    public string Compose(RepositoryPdfReportData reportData)
+    {
+        ArgumentNullException.ThrowIfNull(reportData);
+
+        var rows = reportData.PullRequestDetails;
+        var now = reportData.GeneratedAt;
+        var overdueTtfrCount = rows.Count(detail =>
+            detail.TimeToFirstResponse is null
+            && detail.GetOpenDuration(now) > TimeSpan.FromHours(reportData.TtfrThresholdHours));
+        var requestChangesTotal = rows.Sum(static detail => detail.RequestChangesCount);
+        var approvalsTotal = rows.Sum(static detail => detail.ApprovalsCount);
+
+        var html = new StringBuilder(32 * 1024);
+        _ = html.Append(
+            CultureInfo.InvariantCulture,
+$$"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open PR Details - {{HtmlPresentationHelpers.Encode(reportData.Workspace)}}</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --panel: #252526;
+      --panel-alt: #2d2d30;
+      --border: #3c3c3c;
+      --text: #cccccc;
+      --muted: #8b8b8b;
+      --accent: #3794ff;
+      --danger: #f48771;
+      --warning: #e2c08d;
+      --success: #89d185;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+      --font: "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(55, 148, 255, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(137, 209, 133, 0.12), transparent 26%),
+        linear-gradient(180deg, #181818 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.35;
+      font-size: 13px;
+      scrollbar-color: #5a5a5a #1f1f1f;
+      scrollbar-width: thin;
+    }
+
+    a { color: #4fc1ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .page {
+      width: min(1800px, calc(100vw - 40px));
+      margin: 8px auto 20px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(55, 148, 255, 0.18), rgba(37, 37, 38, 0.92));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1rem, 1.05vw, 1.3rem);
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    .summary-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .summary-card {
+      background: rgba(45, 45, 48, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 3px 6px;
+      min-width: 96px;
+    }
+
+    .summary-label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1px;
+    }
+
+    .summary-value {
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.5fr) auto;
+      gap: 8px;
+      margin: 6px 0;
+      align-items: center;
+    }
+
+    .controls-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .search, .filter-input {
+      width: 100%;
+      background: #1f1f1f;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 9px;
+      outline: none;
+      font-size: 0.82rem;
+    }
+
+    .search:focus, .filter-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(55, 148, 255, 0.18);
+    }
+
+    .button {
+      background: var(--panel-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      cursor: pointer;
+      transition: background 120ms ease;
+      font-size: 0.8rem;
+    }
+
+    .button:hover {
+      background: #35353a;
+    }
+
+    .table-wrap {
+      background: rgba(37, 37, 38, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .scroll {
+      overflow-x: auto;
+      overflow-y: visible;
+      scrollbar-color: #5a5a5a #1f1f1f;
+      scrollbar-width: thin;
+    }
+
+    body::-webkit-scrollbar,
+    .scroll::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    body::-webkit-scrollbar-track,
+    .scroll::-webkit-scrollbar-track {
+      background: #1f1f1f;
+    }
+
+    body::-webkit-scrollbar-thumb,
+    .scroll::-webkit-scrollbar-thumb {
+      background: #5a5a5a;
+      border: 2px solid #1f1f1f;
+      border-radius: 999px;
+    }
+
+    body::-webkit-scrollbar-thumb:hover,
+    .scroll::-webkit-scrollbar-thumb:hover {
+      background: #6d6d6d;
+    }
+
+    body::-webkit-scrollbar-corner,
+    .scroll::-webkit-scrollbar-corner {
+      background: #1f1f1f;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1320px;
+    }
+
+    thead tr:first-child th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: rgba(45, 45, 48, 0.98);
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead tr.filters th {
+      position: sticky;
+      top: 39px;
+      z-index: 2;
+      background: rgba(37, 37, 38, 0.98);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: top;
+      white-space: nowrap;
+      font-size: 0.82rem;
+    }
+
+    th.repo-column, td.repo-column {
+      width: 160px;
+      min-width: 160px;
+      white-space: normal;
+    }
+
+    th.pr-column, td.pr-column {
+      width: 210px;
+      min-width: 210px;
+      white-space: normal;
+    }
+
+    .pr-link {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 1px;
+      align-items: flex-start;
+    }
+
+    .pr-number {
+      font-weight: 600;
+    }
+
+    tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+    tbody tr:hover { background: rgba(55, 148, 255, 0.08); }
+
+    .th-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: none;
+      color: inherit;
+      border: none;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .sort-indicator {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .muted { color: var(--muted); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.78rem;
+    }
+
+    .badge.rc { color: var(--danger); }
+    .badge.ap { color: var(--success); }
+    .badge.activity { white-space: normal; }
+    .activity-icon { font-size: 0.88rem; }
+    .description-short { color: var(--danger); font-weight: 600; }
+    .ttfr-alert { color: var(--danger); font-weight: 700; }
+    .empty {
+      padding: 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    body.compact-view .summary-grid {
+      display: none;
+    }
+
+    body.compact-view .hero {
+      padding-bottom: 8px;
+    }
+
+    body.compact-view thead tr.filters {
+      display: none;
+    }
+
+    body.compact-view .controls {
+      grid-template-columns: minmax(260px, 1fr) auto;
+    }
+
+    body.compact-view #toggleCompact {
+      background: #35353a;
+      border-color: rgba(79, 193, 255, 0.45);
+    }
+
+    @media (max-width: 960px) {
+      .page { width: calc(100vw - 14px); margin-top: 6px; }
+      .hero { padding: 8px; }
+      .controls { grid-template-columns: 1fr; }
+      .controls-actions { justify-content: stretch; }
+      thead tr:first-child th, thead tr.filters th { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Open PR Details</h1>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span class="summary-label">Generated</span>
+          <span class="summary-value">{{HtmlPresentationHelpers.Encode(reportData.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture))}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Filter</span>
+          <span class="summary-value">{{HtmlPresentationHelpers.Encode(string.IsNullOrWhiteSpace(reportData.FilterPhrase) ? "(none)" : reportData.FilterPhrase)}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">TTFR Threshold</span>
+          <span class="summary-value">{{reportData.TtfrThresholdHours}}h</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Min Description</span>
+          <span class="summary-value">{{reportData.MinimalDescriptionTextLength}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Open PRs</span>
+          <span class="summary-value">{{rows.Count}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">TTFR Alerts</span>
+          <span class="summary-value">{{overdueTtfrCount}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Request Changes</span>
+          <span class="summary-value">{{requestChangesTotal}}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Approvals</span>
+          <span class="summary-value">{{approvalsTotal}}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <input id="globalSearch" class="search" type="search" placeholder="Global search across all columns">
+      <div class="controls-actions">
+        <button id="toggleCompact" class="button" type="button" aria-pressed="false">Compact View</button>
+        <button id="resetFilters" class="button" type="button">Reset Filters</button>
+      </div>
+    </div>
+
+    <section class="table-wrap">
+      <div class="scroll">
+        <table id="prTable">
+          <thead>
+            <tr>
+              <th><button class="th-button" data-sort-column="0" data-sort-type="number" type="button"><span>#</span><span class="sort-indicator"></span></button></th>
+              <th class="repo-column"><button class="th-button" data-sort-column="1" data-sort-type="text" type="button"><span>Repository</span><span class="sort-indicator"></span></button></th>
+              <th class="pr-column"><button class="th-button" data-sort-column="2" data-sort-type="number" type="button"><span>PR</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="3" data-sort-type="number" type="button"><span>Desc. len</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="4" data-sort-type="number" type="button"><span>Open for</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="5" data-sort-type="number" type="button"><span>TTFR</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="6" data-sort-type="number" type="button"><span>Last Activity</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="7" data-sort-type="number" type="button"><span>RC</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="8" data-sort-type="number" type="button"><span>AP</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="9" data-sort-type="text" type="button"><span>My Activity</span><span class="sort-indicator"></span></button></th>
+            </tr>
+            <tr class="filters">
+              <th><input class="filter-input" data-filter-column="0" type="search" placeholder="#"></th>
+              <th class="repo-column"><input class="filter-input" data-filter-column="1" type="search" placeholder="Repository"></th>
+              <th class="pr-column"><input class="filter-input" data-filter-column="2" type="search" placeholder="PR"></th>
+              <th><input class="filter-input" data-filter-column="3" type="search" placeholder="Len"></th>
+              <th><input class="filter-input" data-filter-column="4" type="search" placeholder="Open for"></th>
+              <th><input class="filter-input" data-filter-column="5" type="search" placeholder="TTFR"></th>
+              <th><input class="filter-input" data-filter-column="6" type="search" placeholder="Last activity"></th>
+              <th><input class="filter-input" data-filter-column="7" type="search" placeholder="RC"></th>
+              <th><input class="filter-input" data-filter-column="8" type="search" placeholder="AP"></th>
+              <th><input class="filter-input" data-filter-column="9" type="search" placeholder="comment / approval"></th>
+            </tr>
+          </thead>
+          <tbody>
+""");
+
+        if (rows.Count == 0)
+        {
+            _ = html.AppendLine("""            <tr><td class="empty" colspan="10">No open pull request details were collected for this run.</td></tr>""");
+        }
+        else
+        {
+            for (var i = 0; i < rows.Count; i++)
+            {
+                AppendRow(html, reportData.Workspace, rows[i], i + 1, reportData.GeneratedAt, reportData.TtfrThresholdHours, reportData.MinimalDescriptionTextLength);
+            }
+        }
+
+        _ = html.Append(
+"""
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const table = document.getElementById('prTable');
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('.empty'));
+      const filters = Array.from(document.querySelectorAll('.filter-input'));
+      const globalSearch = document.getElementById('globalSearch');
+      const resetButton = document.getElementById('resetFilters');
+      const toggleCompactButton = document.getElementById('toggleCompact');
+      const sortButtons = Array.from(document.querySelectorAll('[data-sort-column]'));
+      const sortState = { column: null, direction: 'asc' };
+
+      function compareValues(left, right, type, direction) {
+        if (type === 'number') {
+          const leftNumber = Number(left);
+          const rightNumber = Number(right);
+          const normalizedLeft = Number.isNaN(leftNumber) ? Number.MAX_SAFE_INTEGER : leftNumber;
+          const normalizedRight = Number.isNaN(rightNumber) ? Number.MAX_SAFE_INTEGER : rightNumber;
+          return direction === 'asc' ? normalizedLeft - normalizedRight : normalizedRight - normalizedLeft;
+        }
+
+        const leftText = String(left).toLowerCase();
+        const rightText = String(right).toLowerCase();
+        return direction === 'asc'
+          ? leftText.localeCompare(rightText)
+          : rightText.localeCompare(leftText);
+      }
+
+      function applyFilters() {
+        const globalTerm = globalSearch.value.trim().toLowerCase();
+        const columnTerms = new Map(filters.map(filter => [Number(filter.dataset.filterColumn), filter.value.trim().toLowerCase()]));
+
+        for (const row of rows) {
+          const cells = Array.from(row.children);
+          const globalMatch = !globalTerm || cells.some(cell => (cell.dataset.filter || cell.textContent || '').toLowerCase().includes(globalTerm));
+          const columnsMatch = cells.every((cell, index) => {
+            const term = columnTerms.get(index);
+            return !term || (cell.dataset.filter || cell.textContent || '').toLowerCase().includes(term);
+          });
+
+          row.hidden = !(globalMatch && columnsMatch);
+        }
+      }
+
+      function applySort() {
+        if (sortState.column === null) {
+          return;
+        }
+
+        const button = sortButtons.find(item => Number(item.dataset.sortColumn) === sortState.column);
+        const type = button?.dataset.sortType || 'text';
+        const sorted = [...rows].sort((leftRow, rightRow) => {
+          const leftCell = leftRow.children[sortState.column];
+          const rightCell = rightRow.children[sortState.column];
+          return compareValues(leftCell.dataset.sort || leftCell.textContent, rightCell.dataset.sort || rightCell.textContent, type, sortState.direction);
+        });
+
+        for (const row of sorted) {
+          tbody.appendChild(row);
+        }
+      }
+
+      function updateSortIndicators() {
+        for (const button of sortButtons) {
+          const indicator = button.querySelector('.sort-indicator');
+          const column = Number(button.dataset.sortColumn);
+          indicator.textContent = sortState.column === column ? (sortState.direction === 'asc' ? '▲' : '▼') : '';
+        }
+      }
+
+      for (const filter of filters) {
+        filter.addEventListener('input', applyFilters);
+      }
+
+      globalSearch.addEventListener('input', applyFilters);
+      resetButton.addEventListener('click', () => {
+        globalSearch.value = '';
+        for (const filter of filters) {
+          filter.value = '';
+        }
+
+        applyFilters();
+      });
+
+      toggleCompactButton.addEventListener('click', () => {
+        const isCompact = document.body.classList.toggle('compact-view');
+        toggleCompactButton.textContent = isCompact ? 'Full View' : 'Compact View';
+        toggleCompactButton.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
+      });
+
+      for (const button of sortButtons) {
+        button.addEventListener('click', () => {
+          const nextColumn = Number(button.dataset.sortColumn);
+          sortState.direction = sortState.column === nextColumn && sortState.direction === 'asc' ? 'desc' : 'asc';
+          sortState.column = nextColumn;
+          applySort();
+          updateSortIndicators();
+          applyFilters();
+        });
+      }
+
+      sortState.column = 4;
+      sortState.direction = 'desc';
+      applySort();
+      updateSortIndicators();
+      applyFilters();
+    })();
+  </script>
+</body>
+</html>
+""");
+
+        return html.ToString();
+    }
+
+    private static void AppendRow(
+        StringBuilder html,
+        string workspace,
+        PullRequestDetail detail,
+        int index,
+        DateTimeOffset generatedAt,
+        int ttfrThresholdHours,
+        int minimalDescriptionTextLength)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+        ArgumentNullException.ThrowIfNull(detail);
+
+        var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
+        var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(workspace, detail.RepositorySlug, detail.PullRequestId);
+        var descriptionLength = detail.DescriptionText?.Length ?? 0;
+        var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
+        var openFor = detail.GetOpenDuration(generatedAt);
+        var ttfr = detail.TimeToFirstResponse;
+        var overdueTtfr = ttfr is null && openFor > TimeSpan.FromHours(ttfrThresholdHours);
+        var lastActivityAge = detail.GetLastActivityAge(generatedAt);
+        var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(detail);
+
+        _ = html.AppendLine(
+            CultureInfo.InvariantCulture,
+$"""
+            <tr>
+              <td data-sort="{index}" data-filter="{index.ToString(CultureInfo.InvariantCulture)}">{index.ToString(CultureInfo.InvariantCulture)}</td>
+              <td class="repo-column" data-sort="{HtmlPresentationHelpers.Encode(detail.RepositoryName)}" data-filter="{HtmlPresentationHelpers.Encode(detail.RepositoryName)}">{BuildLink(repositoryUrl, detail.RepositoryName)}</td>
+              <td class="pr-column" data-sort="{detail.PullRequestId}" data-filter="{detail.PullRequestId} {HtmlPresentationHelpers.Encode(detail.Title)}">{BuildPullRequestLink(pullRequestUrl, detail.PullRequestId, detail.Title)}</td>
+              <td data-sort="{descriptionLength}" data-filter="{descriptionLength}"{(isDescriptionShort ? " class=\"description-short\"" : string.Empty)}>{descriptionLength.ToString(CultureInfo.InvariantCulture)}</td>
+              <td data-sort="{(long)openFor.TotalMinutes}" data-filter="{HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor))}">{HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor))}</td>
+              <td data-sort="{(ttfr is null ? -1 : (long)ttfr.Value.TotalMinutes)}" data-filter="{HtmlPresentationHelpers.Encode(ttfr is null ? (overdueTtfr ? "alert" : "-") : HtmlPresentationHelpers.FormatDuration(ttfr.Value))}">{BuildTtfrCell(ttfr, overdueTtfr)}</td>
+              <td data-sort="{(lastActivityAge is null ? -1 : (long)lastActivityAge.Value.TotalMinutes)}" data-filter="{HtmlPresentationHelpers.Encode(lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value))}">{HtmlPresentationHelpers.Encode(lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value))}</td>
+              <td data-sort="{detail.RequestChangesCount}" data-filter="{HtmlPresentationHelpers.Encode(detail.RequestChangesDisplayText)}">{BuildBadge(detail.RequestChangesDisplayText, "rc")}</td>
+              <td data-sort="{detail.ApprovalsCount}" data-filter="{HtmlPresentationHelpers.Encode(detail.ApprovalsDisplayText)}">{BuildBadge(detail.ApprovalsDisplayText, "ap")}</td>
+              <td data-sort="{HtmlPresentationHelpers.Encode(myActivityText)}" data-filter="{HtmlPresentationHelpers.Encode(myActivityText)}">{BuildActivityBadge(detail)}</td>
+            </tr>
+""");
+    }
+
+    private static string BuildLink(string? url, string text)
+    {
+        var encodedText = HtmlPresentationHelpers.Encode(text);
+        return string.IsNullOrWhiteSpace(url)
+            ? encodedText
+            : $"<a href=\"{HtmlPresentationHelpers.Encode(url)}\" target=\"_blank\" rel=\"noreferrer\">{encodedText}</a>";
+    }
+
+    private static string BuildPullRequestLink(string? url, int pullRequestId, string title)
+    {
+        var encodedNumber = HtmlPresentationHelpers.Encode("#" + pullRequestId.ToString(CultureInfo.InvariantCulture));
+        var encodedTitle = HtmlPresentationHelpers.Encode(title);
+        var content = $"<span class=\"pr-link\"><span class=\"pr-number\">{encodedNumber}</span><span>{encodedTitle}</span></span>";
+
+        return string.IsNullOrWhiteSpace(url)
+            ? content
+            : $"<a href=\"{HtmlPresentationHelpers.Encode(url)}\" class=\"pr-link\" target=\"_blank\" rel=\"noreferrer\"><span class=\"pr-number\">{encodedNumber}</span><span>{encodedTitle}</span></a>";
+    }
+
+    private static string BuildTtfrCell(TimeSpan? ttfr, bool overdueTtfr)
+    {
+        if (ttfr is null)
+        {
+            return overdueTtfr
+                ? "<span class=\"ttfr-alert\">ALERT</span>"
+                : "-";
+        }
+
+        return HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(ttfr.Value));
+    }
+
+    private static string BuildBadge(string text, string cssClass)
+    {
+        var encodedText = HtmlPresentationHelpers.Encode(text);
+        return text == "-"
+            ? encodedText
+            : $"<span class=\"badge {cssClass}\">{encodedText}</span>";
+    }
+
+    private static string BuildActivityBadge(PullRequestDetail detail)
+    {
+        if (!detail.HasCurrentUserActivity)
+        {
+            return "-";
+        }
+
+        var parts = new List<string>(3);
+
+        if (detail.HasCurrentUserDiscussion)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Comment\">💬</span>");
+        }
+
+        if (detail.HasCurrentUserRequestChanges)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Request changes\">❌</span>");
+        }
+
+        if (detail.HasCurrentUserApproval)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Approval\">✅</span>");
+        }
+
+        return $"<span class=\"badge activity\">{string.Join(" ", parts)}</span>";
+    }
+}

@@ -56,6 +56,12 @@ public sealed class BitbucketOptions
     public PdfOptions Pdf { get; init; } = new();
 
     /// <summary>
+    /// HTML report settings.
+    /// </summary>
+    [Required]
+    public HtmlOptions Html { get; init; } = new();
+
+    /// <summary>
     /// Pull request details report settings.
     /// </summary>
     [Required]

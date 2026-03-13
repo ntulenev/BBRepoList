@@ -32,6 +32,9 @@ public sealed class BitbucketOptionsTests
         options.Pdf.Should().NotBeNull();
         options.Pdf.Enabled.Should().BeTrue();
         options.Pdf.OutputPath.Should().Be("bbrepolist-report.pdf");
+        options.Html.Should().NotBeNull();
+        options.Html.Enabled.Should().BeTrue();
+        options.Html.OutputPath.Should().Be("bbrepolist-open-pr-details.html");
         options.PullRequestDetails.Should().NotBeNull();
         options.PullRequestDetails.IsEnabled.Should().BeFalse();
         options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
@@ -311,6 +314,29 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("Pdf"));
+    }
+
+    [Fact(DisplayName = "Validation fails when html options are null")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenHtmlOptionsAreNullReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            Html = null!
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("Html"));
     }
 
     [Fact(DisplayName = "Validation fails when abandoned threshold is below one")]
