@@ -103,10 +103,6 @@ HTML report features:
 - per-column filters
 - compact mode toggle
 
-HTML-specific notes:
-- The HTML open PR details table omits `Opened on` to save horizontal space.
-- For time sorting in HTML, missing values (`-`) are treated as the smallest duration, so ascending order behaves like `-`, `1m`, `5m`, `8d`.
-
 If `LoadOpenPullRequestsStatistics` is enabled, open PR count is resolved only for repositories that match the entered name filter.
 
 >For demonstration purposes, the program output shown in the screenshots uses synthetic data to avoid exposing information from real repositories.
