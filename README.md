@@ -13,7 +13,6 @@ It supports:
 - Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
 - PDF report export (QuestPDF)
 - Interactive HTML report export for open PR analysis
-- Demo mode with fully synthetic repositories, pull requests, and user data
 
 ## Bitbucket REST API
 This app uses the Bitbucket Cloud REST API:
@@ -66,9 +65,6 @@ Settings:
 - `Pdf.OutputPath`: PDF file path (date suffix is added automatically).
 - `Html.Enabled`: Enables/disables HTML report generation. Default: `true`.
 - `Html.OutputPath`: HTML file path for the open PR details report (date suffix is added automatically).
-- `Demo.IsEnabled`: Enables/disables demo mode. When enabled, the app does not connect to Bitbucket and uses synthetic repositories, pull requests, and user data. Default: `false`.
-- `Demo.Workspace`: Workspace name shown in console/PDF/HTML output while demo mode is enabled. Default: `Demo Workspace`.
-- `Demo.UserDisplayName`: Synthetic authenticated user name shown while demo mode is enabled. Default: `Demo Presenter`.
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.
@@ -78,10 +74,6 @@ Settings:
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 - `RepositorySearchMode`: Repository name search mode from configuration. Supported: `Contains`, `StartWith`. Default: `Contains`.
-
-Demo mode notes:
-- When `Demo.IsEnabled` is `true`, live settings (`BaseUrl`, `Workspace`, `AuthEmail`, `AuthApiToken`) are not required.
-- Demo mode is intended for presentations and screenshots where real repository names, pull request titles, reviewers, and workspace data must stay hidden.
 
 ## Output
 The app renders:
@@ -114,11 +106,6 @@ HTML report features:
 HTML-specific notes:
 - The HTML open PR details table omits `Opened on` to save horizontal space.
 - For time sorting in HTML, missing values (`-`) are treated as the smallest duration, so ascending order behaves like `-`, `1m`, `5m`, `8d`.
-
-Demo mode behavior:
-- No live Bitbucket authentication or REST API calls are made.
-- Console output is labeled as demo mode.
-- Generated PDF and HTML reports use the configured demo workspace name and synthetic repository/PR data.
 
 If `LoadOpenPullRequestsStatistics` is enabled, open PR count is resolved only for repositories that match the entered name filter.
 
