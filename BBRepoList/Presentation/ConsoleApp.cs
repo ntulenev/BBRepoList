@@ -298,7 +298,7 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]TTFR[/]"))
             .AddColumn(new TableColumn("[green]RC[/]"))
             .AddColumn(new TableColumn("[green]AP[/]"))
-            .AddColumn(new TableColumn("[green]My Comments[/]"));
+            .AddColumn(new TableColumn("[green]My Activity[/]"));
 
         var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
         var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
@@ -317,7 +317,6 @@ public sealed class ConsoleApp
                 : isTtfrPendingOverdue
                     ? "[red]ALERT[/]"
                     : "-";
-            var discussion = detail.HasCurrentUserDiscussion ? "[yellow]Yes[/]" : "-";
             var pullRequestText = Markup.Escape(
                 $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)} {detail.Title}");
             var descriptionLength = detail.DescriptionText?.Length ?? 0;
@@ -326,6 +325,7 @@ public sealed class ConsoleApp
                 : descriptionLength.ToString(CultureInfo.InvariantCulture);
             var requestChangesText = Markup.Escape(detail.RequestChangesDisplayText);
             var approvalsText = Markup.Escape(detail.ApprovalsDisplayText);
+            var myActivityText = GetMyActivityMarkup(detail);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -337,7 +337,7 @@ public sealed class ConsoleApp
                 ttfrCell,
                 requestChangesText,
                 approvalsText,
-                discussion);
+                myActivityText);
         }
 
         AnsiConsole.Write(table);
@@ -440,6 +440,33 @@ public sealed class ConsoleApp
         }
 
         return "<1m";
+    }
+
+    private static string GetMyActivityMarkup(PullRequestDetail detail)
+    {
+        if (!detail.HasCurrentUserActivity)
+        {
+            return "-";
+        }
+
+        var parts = new List<string>(3);
+
+        if (detail.HasCurrentUserDiscussion)
+        {
+            parts.Add("[yellow]💬[/]");
+        }
+
+        if (detail.HasCurrentUserRequestChanges)
+        {
+            parts.Add("[red]❌[/]");
+        }
+
+        if (detail.HasCurrentUserApproval)
+        {
+            parts.Add("[green]✅[/]");
+        }
+
+        return string.Join(" ", parts);
     }
 
     private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;

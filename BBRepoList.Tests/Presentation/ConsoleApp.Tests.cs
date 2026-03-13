@@ -327,11 +327,14 @@ public sealed class ConsoleAppTests
         output.Should().Contain("TTFR");
         output.Should().Contain("RC");
         output.Should().Contain("AP");
+        output.Should().Contain("My");
+        output.Should().Contain("Acti");
         output.Should().Contain("(3)");
         output.Should().Contain("(2)");
-        output.Should().Contain("(my)");
         output.Should().NotContain("Alert");
-        output.Should().Contain("Yes");
+        output.Should().Contain("💬");
+        output.Should().Contain("❌");
+        output.Should().Contain("✅");
         output.Should().Contain("Featur");
     }
 

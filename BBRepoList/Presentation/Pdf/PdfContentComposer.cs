@@ -5,6 +5,7 @@ using BBRepoList.Models;
 
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace BBRepoList.Presentation.Pdf;
 
@@ -214,7 +215,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("My comments");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("My Activity");
             });
 
             for (var i = 0; i < pullRequestDetails.Count; i++)
@@ -228,7 +229,6 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var ttfrText = ttfr is null
                     ? isTtfrPendingOverdue ? "ALERT" : "-"
                     : FormatDuration(ttfr.Value);
-                var discussion = detail.HasCurrentUserDiscussion ? "\U0001F4AC Yes" : "-";
                 var descriptionLength = detail.DescriptionText?.Length ?? 0;
                 var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
                 var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
@@ -284,12 +284,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .DefaultTextStyle(static style => style.FontColor(Colors.Green.Darken2))
                         .Text(approvalsText)
                     : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(approvalsText);
-                _ = detail.HasCurrentUserDiscussion
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2))
-                        .Text(discussion)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(discussion);
+                ComposeMyActivityCell(table.Cell().Element(PdfPresentationHelpers.StyleBodyCell), detail);
             }
         });
     }
@@ -396,5 +391,46 @@ public sealed class PdfContentComposer : IPdfContentComposer
         }
 
         return "<1m";
+    }
+
+    private static void ComposeMyActivityCell(IContainer container, PullRequestDetail detail)
+    {
+        if (!detail.HasCurrentUserActivity)
+        {
+            _ = container.Text("-");
+            return;
+        }
+
+        container.Text(text =>
+        {
+            var needsSeparator = false;
+
+            if (detail.HasCurrentUserDiscussion)
+            {
+                _ = text.Span("\U0001F4AC").FontColor(Colors.Blue.Darken2);
+                needsSeparator = true;
+            }
+
+            if (detail.HasCurrentUserRequestChanges)
+            {
+                if (needsSeparator)
+                {
+                    _ = text.Span(" ");
+                }
+
+                _ = text.Span("\u274C").FontColor(Colors.Red.Darken2);
+                needsSeparator = true;
+            }
+
+            if (detail.HasCurrentUserApproval)
+            {
+                if (needsSeparator)
+                {
+                    _ = text.Span(" ");
+                }
+
+                _ = text.Span("\u2705").FontColor(Colors.Green.Darken2);
+            }
+        });
     }
 }

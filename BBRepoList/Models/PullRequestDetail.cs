@@ -190,9 +190,7 @@ public sealed class PullRequestDetail
     public string RequestChangesDisplayText =>
         RequestChangesCount == 0
             ? "-"
-            : HasCurrentUserRequestChanges
-                ? $"RC ({RequestChangesCount}) (my)"
-                : $"RC ({RequestChangesCount})";
+            : $"RC ({RequestChangesCount})";
 
     /// <summary>
     /// Formats current approval status for presentation.
@@ -201,7 +199,13 @@ public sealed class PullRequestDetail
     public string ApprovalsDisplayText =>
         ApprovalsCount == 0
             ? "-"
-            : HasCurrentUserApproval
-                ? $"AP ({ApprovalsCount}) (my)"
-                : $"AP ({ApprovalsCount})";
+            : $"AP ({ApprovalsCount})";
+
+    /// <summary>
+    /// Gets a value indicating whether current authenticated user has any tracked pull request activity.
+    /// </summary>
+    public bool HasCurrentUserActivity =>
+        HasCurrentUserDiscussion
+        || HasCurrentUserRequestChanges
+        || HasCurrentUserApproval;
 }
