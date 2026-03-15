@@ -254,6 +254,61 @@ public sealed class ConsoleAppTests
         repoCalls.Should().Be(1);
     }
 
+    [Fact(DisplayName = "RunAsync uses repository search phrase from options without prompting")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenRepositorySearchPhraseIsConfiguredSkipsPromptAndUsesIt()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repoCalls = 0;
+
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Config Repo"
+            && data.Repositories.Count == 0
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Config Repo"
+            && data.Repositories.Count == 0
+            && data.PullRequestDetails.Count == 0
+            && data.LoadAbandonedRepositoriesStatistics
+            && data.AbandonedMonthsThreshold == 120
+            && data.TtfrThresholdHours == 4)));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Config Repo"),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
+                cts.Token))
+            .Callback(() => repoCalls++)
+            .ReturnsAsync([]);
+
+        var options = Options.Create(CreateOptions(repositorySearchPhrase: "Config Repo"));
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+
+        var output = await RunWithTestConsoleAsync(async _ =>
+        {
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        repoCalls.Should().Be(1);
+        output.Should().NotContain("Search phrase:");
+        output.Should().Contain("Config Repo");
+    }
+
     [Fact(DisplayName = "RunAsync does not render open pull requests table when there are no open pull requests")]
     [Trait("Category", "Unit")]
     public async Task RunAsyncWhenNoRepositoriesHaveOpenPullRequestsDoesNotRenderOpenPullRequestsTable()
@@ -367,9 +422,11 @@ public sealed class ConsoleAppTests
                     "Feature work",
                     prOpenedOn,
                     new BitbucketId("{author}"),
+                    "Author One",
                     prOpenedOn.AddHours(5),
                     prOpenedOn.AddHours(7),
                     true,
+                    commentsCount: 4,
                     requestChangesCount: 3,
                     hasCurrentUserRequestChanges: true,
                     approvalsCount: 2,
@@ -391,11 +448,14 @@ public sealed class ConsoleAppTests
         detailsCalls.Should().Be(1);
         output.Should().Contain("Open PR details");
         output.Should().Contain("len");
-        output.Should().Contain("TTFR");
-        output.Should().Contain("Last");
+        output.Should().Contain("TT");
+        output.Should().Contain("Up");
+        output.Should().Contain("Auth");
+        output.Should().Contain("💬");
         output.Should().Contain("RC");
         output.Should().Contain("AP");
-        output.Should().Contain("My");
+        output.Should().Contain("Me");
+        output.Should().Contain("4");
         output.Should().Contain("(3)");
         output.Should().Contain("(2)");
         output.Should().NotContain("Alert");
@@ -459,6 +519,7 @@ public sealed class ConsoleAppTests
                     "No response yet",
                     prOpenedOn,
                     new BitbucketId("{author}"),
+                    null,
                     firstNonAuthorActivityOn: null,
                     lastActivityOn: null,
                     hasCurrentUserDiscussion: false)
@@ -476,7 +537,7 @@ public sealed class ConsoleAppTests
         });
 
         // Assert
-        output.Should().Contain("ALERT");
+        output.Should().Contain("ALER");
     }
 
     [Fact(DisplayName = "RunAsync renders description length column and actual value for open PR details")]
@@ -520,6 +581,7 @@ public sealed class ConsoleAppTests
                     "Short description",
                     prOpenedOn,
                     new BitbucketId("{author}"),
+                    "Author Two",
                     prOpenedOn.AddHours(1),
                     prOpenedOn.AddHours(2),
                     hasCurrentUserDiscussion: false,
@@ -542,7 +604,7 @@ public sealed class ConsoleAppTests
 
         // Assert
         output.Should().Contain("len");
-        output.Should().Contain("Short");
+        output.Should().Contain("Auth");
         output.Should().Contain("5");
     }
 
@@ -743,7 +805,8 @@ public sealed class ConsoleAppTests
         bool prDetailsEnabled = false,
         int ttfrThresholdHours = 4,
         int minimalDescriptionTextLength = 1,
-        RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains)
+        RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains,
+        string? repositorySearchPhrase = null)
     {
         return new BitbucketOptions
         {
@@ -771,7 +834,8 @@ public sealed class ConsoleAppTests
             },
             AbandonedMonthsThreshold = abandonedMonthsThreshold,
             LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics,
-            RepositorySearchMode = repositorySearchMode
+            RepositorySearchMode = repositorySearchMode,
+            RepositorySearchPhrase = repositorySearchPhrase
         };
     }
 

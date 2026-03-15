@@ -111,6 +111,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 var hasCurrentUserDiscussion = activities.Any(activity =>
                     activity.IsComment
                     && activity.ActorId == currentUserId);
+                var commentsCount = activities.Count(static activity => activity.IsComment);
 
                 details.Add(new PullRequestDetail(
                     repository,
@@ -118,10 +119,12 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequest.Title,
                     pullRequest.CreatedOn,
                     pullRequest.AuthorId,
+                    pullRequest.AuthorDisplayName,
                     firstNonAuthorActivityOn,
                     lastActivityOn,
                     hasCurrentUserDiscussion,
                     pullRequest.DescriptionText,
+                    commentsCount,
                     requestChangesCount,
                     hasCurrentUserRequestChanges,
                     approvalsCount,
@@ -176,7 +179,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                         : pullRequestDto.Title.Trim(),
                     pullRequestDto.CreatedOn.Value,
                     descriptionText,
-                    authorId));
+                    authorId,
+                    pullRequestDto.Author?.DisplayName));
             }
 
             url = page.Next;

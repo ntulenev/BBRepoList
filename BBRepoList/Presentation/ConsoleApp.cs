@@ -56,7 +56,10 @@ public sealed class ConsoleApp
             return;
         }
 
-        var filterPattern = await ReadFilterPatternAsync(_options.RepositorySearchMode, cancellationToken).ConfigureAwait(false);
+        var filterPattern = await ReadFilterPatternAsync(
+            _options.RepositorySearchMode,
+            _options.RepositorySearchPhrase,
+            cancellationToken).ConfigureAwait(false);
         ShowFilterInfo(filterPattern);
 
         var repositories = await LoadRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false);
@@ -114,10 +117,16 @@ public sealed class ConsoleApp
 
     private static async Task<FilterPattern> ReadFilterPatternAsync(
         RepositorySearchMode defaultSearchMode,
+        string? configuredSearchPhrase,
         CancellationToken cancellationToken)
     {
         AnsiConsole.MarkupLine(
             $"[grey]Search by repository name. Mode from settings: {Markup.Escape(defaultSearchMode.ToString())}. Empty phrase = all.[/]\n");
+
+        if (!string.IsNullOrWhiteSpace(configuredSearchPhrase))
+        {
+            return new FilterPattern(configuredSearchPhrase.Trim(), defaultSearchMode);
+        }
 
         var searchPhrase = (await AnsiConsole.PromptAsync(
             new TextPrompt<string>("Search phrase:").AllowEmpty(),
@@ -297,14 +306,16 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]#[/]").Centered())
             .AddColumn(new TableColumn("[green]Repository[/]"))
             .AddColumn(new TableColumn("[green]PR[/]").Width(28))
+            .AddColumn(new TableColumn("[green]🧑‍💻[/]"))
             .AddColumn(new TableColumn("[green]Description len[/]"))
             .AddColumn(new TableColumn("[green]Opened on[/]"))
             .AddColumn(new TableColumn("[green]Open for[/]"))
             .AddColumn(new TableColumn("[green]TTFR[/]"))
-            .AddColumn(new TableColumn("[green]Last Activity[/]"))
+            .AddColumn(new TableColumn("[green]Updated[/]"))
+            .AddColumn(new TableColumn("[green]💬[/]"))
             .AddColumn(new TableColumn("[green]RC[/]"))
             .AddColumn(new TableColumn("[green]AP[/]"))
-            .AddColumn(new TableColumn("[green]My Activity[/]"));
+            .AddColumn(new TableColumn("[green]Me[/]"));
 
         var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
         var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
@@ -327,6 +338,7 @@ public sealed class ConsoleApp
             var lastActivityCell = lastActivityAge is null
                 ? "-"
                 : Markup.Escape(FormatDuration(lastActivityAge.Value));
+            var authorCell = Markup.Escape(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(detail.AuthorDisplayName)));
             var pullRequestText = Markup.Escape(
                 $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)}\n{detail.Title}");
             var descriptionLength = detail.DescriptionText?.Length ?? 0;
@@ -343,11 +355,13 @@ public sealed class ConsoleApp
                 (i + 1).ToString(CultureInfo.InvariantCulture),
                 Markup.Escape(detail.RepositoryName),
                 pullRequestText,
+                authorCell,
                 descriptionLengthCell,
                 Markup.Escape(openedOn),
                 Markup.Escape(openFor),
                 ttfrCell,
                 lastActivityCell,
+                detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
                 requestChangesText,
                 approvalsText,
                 myActivityText);

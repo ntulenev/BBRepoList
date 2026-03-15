@@ -43,10 +43,12 @@ public sealed class HtmlContentComposerTests
             "Fix <bug>",
             new DateTimeOffset(2026, 3, 13, 8, 0, 0, TimeSpan.Zero),
             authorId: null,
+            authorDisplayName: "Dev One",
             firstNonAuthorActivityOn: new DateTimeOffset(2026, 3, 13, 9, 0, 0, TimeSpan.Zero),
             lastActivityOn: new DateTimeOffset(2026, 3, 13, 9, 30, 0, TimeSpan.Zero),
             hasCurrentUserDiscussion: true,
             descriptionText: "A detailed description",
+            commentsCount: 4,
             requestChangesCount: 2,
             hasCurrentUserRequestChanges: true,
             approvalsCount: 1,
@@ -67,6 +69,11 @@ public sealed class HtmlContentComposerTests
         html.Should().Contain("&lt;hotfix&gt;");
         html.Should().Contain("Repo &lt;One&gt;");
         html.Should().Contain("Fix &lt;bug&gt;");
+        html.Should().Contain("Dev<br />One");
+        html.Should().Contain("data-sort=\"Dev One\"");
+        html.Should().Contain(">🧑‍💻<");
+        html.Should().Contain(">4<");
+        html.Should().Contain("Comments");
         html.Should().Contain("RC (2)");
         html.Should().Contain("AP (1)");
         html.Should().Contain("https://bitbucket.org/workspace/repo-one/pull-requests/101");

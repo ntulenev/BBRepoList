@@ -392,6 +392,7 @@ public sealed class RepositoryServiceTests
                     "PR older",
                     new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
                     new BitbucketId("{author-1}"),
+                    "Author 1",
                     null,
                     null,
                     false)
@@ -406,6 +407,7 @@ public sealed class RepositoryServiceTests
                     "PR newer",
                     new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero),
                     new BitbucketId("{author-2}"),
+                    "Author 2",
                     null,
                     null,
                     true)

@@ -178,7 +178,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1320px;
+      min-width: 1480px;
     }
 
     thead tr:first-child th {
@@ -335,6 +335,10 @@
           <span class="summary-value">__TTFR_ALERTS__</span>
         </div>
         <div class="summary-card">
+          <span class="summary-label">Comments</span>
+          <span class="summary-value">__COMMENTS_TOTAL__</span>
+        </div>
+        <div class="summary-card">
           <span class="summary-label">Request Changes</span>
           <span class="summary-value">__REQUEST_CHANGES_TOTAL__</span>
         </div>
@@ -361,25 +365,29 @@
               <th><button class="th-button" data-sort-column="0" data-sort-type="number" type="button"><span>#</span><span class="sort-indicator"></span></button></th>
               <th class="repo-column"><button class="th-button" data-sort-column="1" data-sort-type="text" type="button"><span>Repository</span><span class="sort-indicator"></span></button></th>
               <th class="pr-column"><button class="th-button" data-sort-column="2" data-sort-type="number" type="button"><span>PR</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="3" data-sort-type="number" type="button"><span>Desc. len</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="4" data-sort-type="number" type="button"><span>Open for</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="5" data-sort-type="number" type="button"><span>TTFR</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="6" data-sort-type="number" type="button"><span>Last Activity</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="7" data-sort-type="number" type="button"><span>RC</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="8" data-sort-type="number" type="button"><span>AP</span><span class="sort-indicator"></span></button></th>
-              <th><button class="th-button" data-sort-column="9" data-sort-type="text" type="button"><span>My Activity</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="3" data-sort-type="text" type="button"><span>🧑‍💻</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="4" data-sort-type="number" type="button"><span>Desc. len</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="5" data-sort-type="number" type="button"><span>Open for</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="6" data-sort-type="number" type="button"><span>TTFR</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="7" data-sort-type="number" type="button"><span>Updated</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="8" data-sort-type="number" type="button"><span>💬</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="9" data-sort-type="number" type="button"><span>RC</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="10" data-sort-type="number" type="button"><span>AP</span><span class="sort-indicator"></span></button></th>
+              <th><button class="th-button" data-sort-column="11" data-sort-type="text" type="button"><span>Me</span><span class="sort-indicator"></span></button></th>
             </tr>
             <tr class="filters">
               <th><input class="filter-input" data-filter-column="0" type="search" placeholder="#"></th>
               <th class="repo-column"><input class="filter-input" data-filter-column="1" type="search" placeholder="Repository"></th>
               <th class="pr-column"><input class="filter-input" data-filter-column="2" type="search" placeholder="PR"></th>
-              <th><input class="filter-input" data-filter-column="3" type="search" placeholder="Len"></th>
-              <th><input class="filter-input" data-filter-column="4" type="search" placeholder="Open for"></th>
-              <th><input class="filter-input" data-filter-column="5" type="search" placeholder="TTFR"></th>
-              <th><input class="filter-input" data-filter-column="6" type="search" placeholder="Last activity"></th>
-              <th><input class="filter-input" data-filter-column="7" type="search" placeholder="RC"></th>
-              <th><input class="filter-input" data-filter-column="8" type="search" placeholder="AP"></th>
-              <th><input class="filter-input" data-filter-column="9" type="search" placeholder="comment / approval"></th>
+              <th><input class="filter-input" data-filter-column="3" type="search" placeholder="🧑‍💻"></th>
+              <th><input class="filter-input" data-filter-column="4" type="search" placeholder="Len"></th>
+              <th><input class="filter-input" data-filter-column="5" type="search" placeholder="Open for"></th>
+              <th><input class="filter-input" data-filter-column="6" type="search" placeholder="TTFR"></th>
+              <th><input class="filter-input" data-filter-column="7" type="search" placeholder="Updated"></th>
+              <th><input class="filter-input" data-filter-column="8" type="search" placeholder="💬"></th>
+              <th><input class="filter-input" data-filter-column="9" type="search" placeholder="RC"></th>
+              <th><input class="filter-input" data-filter-column="10" type="search" placeholder="AP"></th>
+              <th><input class="filter-input" data-filter-column="11" type="search" placeholder="Me"></th>
             </tr>
           </thead>
           <tbody>

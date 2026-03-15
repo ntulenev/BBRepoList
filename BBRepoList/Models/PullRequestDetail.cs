@@ -13,10 +13,12 @@ public sealed class PullRequestDetail
     /// <param name="title">Pull request title.</param>
     /// <param name="openedOn">Pull request creation timestamp.</param>
     /// <param name="authorId">Pull request author identifier.</param>
+    /// <param name="authorDisplayName">Pull request author display name.</param>
     /// <param name="firstNonAuthorActivityOn">First activity timestamp by non-author.</param>
     /// <param name="lastActivityOn">Latest pull request activity timestamp.</param>
     /// <param name="hasCurrentUserDiscussion">Whether current authenticated user has commented in activity.</param>
     /// <param name="descriptionText">Pull request description text.</param>
+    /// <param name="commentsCount">Comment count detected in pull request activity.</param>
     /// <param name="requestChangesCount">Active request changes count for the pull request.</param>
     /// <param name="hasCurrentUserRequestChanges">Whether current authenticated user currently requests changes.</param>
     /// <param name="approvalsCount">Active approvals count for the pull request.</param>
@@ -27,10 +29,12 @@ public sealed class PullRequestDetail
         string title,
         DateTimeOffset openedOn,
         BitbucketId? authorId,
+        string? authorDisplayName,
         DateTimeOffset? firstNonAuthorActivityOn,
         DateTimeOffset? lastActivityOn,
         bool hasCurrentUserDiscussion,
         string? descriptionText = null,
+        int commentsCount = 0,
         int requestChangesCount = 0,
         bool hasCurrentUserRequestChanges = false,
         int approvalsCount = 0,
@@ -55,6 +59,13 @@ public sealed class PullRequestDetail
                 "Request changes count cannot be negative.");
         }
 
+        if (commentsCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(commentsCount),
+                "Comments count cannot be negative.");
+        }
+
         if (approvalsCount < 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -68,9 +79,11 @@ public sealed class PullRequestDetail
         OpenedOn = openedOn;
         DescriptionText = string.IsNullOrWhiteSpace(descriptionText) ? null : descriptionText.Trim();
         AuthorId = authorId;
+        AuthorDisplayName = string.IsNullOrWhiteSpace(authorDisplayName) ? null : authorDisplayName.Trim();
         FirstNonAuthorActivityOn = firstNonAuthorActivityOn;
         LastActivityOn = lastActivityOn;
         HasCurrentUserDiscussion = hasCurrentUserDiscussion;
+        CommentsCount = commentsCount;
         RequestChangesCount = requestChangesCount;
         HasCurrentUserRequestChanges = requestChangesCount > 0 && hasCurrentUserRequestChanges;
         ApprovalsCount = approvalsCount;
@@ -123,6 +136,11 @@ public sealed class PullRequestDetail
     public BitbucketId? AuthorId { get; }
 
     /// <summary>
+    /// Pull request author display name.
+    /// </summary>
+    public string? AuthorDisplayName { get; }
+
+    /// <summary>
     /// First activity timestamp by non-author.
     /// </summary>
     public DateTimeOffset? FirstNonAuthorActivityOn { get; }
@@ -136,6 +154,11 @@ public sealed class PullRequestDetail
     /// Gets a value indicating whether current authenticated user has commented in activity.
     /// </summary>
     public bool HasCurrentUserDiscussion { get; }
+
+    /// <summary>
+    /// Gets the number of comments detected in pull request activity.
+    /// </summary>
+    public int CommentsCount { get; }
 
     /// <summary>
     /// Gets the number of active reviewers who currently request changes.

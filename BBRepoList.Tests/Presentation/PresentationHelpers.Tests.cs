@@ -6,6 +6,33 @@ namespace BBRepoList.Tests.Presentation;
 
 public sealed class PresentationHelpersTests
 {
+    [Fact(DisplayName = "SplitCompactDisplayName returns dash when display name is empty")]
+    [Trait("Category", "Unit")]
+    public void SplitCompactDisplayNameWhenDisplayNameIsEmptyReturnsDash()
+    {
+        var lines = PresentationHelpers.SplitCompactDisplayName("   ");
+
+        lines.Should().Equal("-");
+    }
+
+    [Fact(DisplayName = "SplitCompactDisplayName splits two-word name into two lines")]
+    [Trait("Category", "Unit")]
+    public void SplitCompactDisplayNameWhenNameHasTwoWordsSplitsIntoTwoLines()
+    {
+        var lines = PresentationHelpers.SplitCompactDisplayName("Jane Doe");
+
+        lines.Should().Equal("Jane", "Doe");
+    }
+
+    [Fact(DisplayName = "SplitCompactDisplayName balances longer names across two lines")]
+    [Trait("Category", "Unit")]
+    public void SplitCompactDisplayNameWhenNameHasManyWordsBalancesAcrossTwoLines()
+    {
+        var lines = PresentationHelpers.SplitCompactDisplayName("Mary Jane Watson Parker");
+
+        lines.Should().Equal("Mary Jane", "Watson Parker");
+    }
+
     [Fact(DisplayName = "FormatRequestChangesText returns dash when count is zero")]
     [Trait("Category", "Unit")]
     public void FormatRequestChangesTextWhenCountIsZeroReturnsDash()

@@ -195,11 +195,13 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 columns.ConstantColumn(24);
                 columns.RelativeColumn(2f);
                 columns.RelativeColumn(1.6f);
+                columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(1f);
+                columns.RelativeColumn(0.8f);
                 columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(1f);
@@ -210,14 +212,16 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("#");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Repository");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("PR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("🧑‍💻");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Description len");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Last Activity");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Updated");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("💬");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("My Activity");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Me");
             });
 
             for (var i = 0; i < pullRequestDetails.Count; i++)
@@ -262,6 +266,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                     pullRequestNumberText,
                     detail.Title);
 
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
+                    .Text(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(detail.AuthorDisplayName)));
                 _ = isDescriptionShort
                     ? table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)
@@ -277,6 +283,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .Text(ttfrText)
                     : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(ttfrText);
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(lastActivityText);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
+                    .Text(detail.CommentsCount.ToString(CultureInfo.InvariantCulture));
                 _ = detail.RequestChangesCount > 0
                     ? table.Cell()
                         .Element(PdfPresentationHelpers.StyleBodyCell)

@@ -12,7 +12,7 @@ namespace BBRepoList.Presentation.Html;
 public sealed class HtmlContentComposer : IHtmlContentComposer
 {
     private const string EMPTY_STATE_ROW_HTML =
-        """            <tr><td class="empty" colspan="10">No open pull request details were collected for this run.</td></tr>""";
+        """            <tr><td class="empty" colspan="12">No open pull request details were collected for this run.</td></tr>""";
 
     /// <inheritdoc />
     public string Compose(RepositoryPdfReportData reportData)
@@ -24,6 +24,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         var overdueTtfrCount = rows.Count(detail =>
             detail.TimeToFirstResponse is null
             && detail.GetOpenDuration(now) > TimeSpan.FromHours(reportData.TtfrThresholdHours));
+        var commentsTotal = rows.Sum(static detail => detail.CommentsCount);
         var requestChangesTotal = rows.Sum(static detail => detail.RequestChangesCount);
         var approvalsTotal = rows.Sum(static detail => detail.ApprovalsCount);
 
@@ -31,7 +32,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
 
         return ApplyTemplate(
             HtmlTemplateLoader.LoadReportTemplate(),
-            new Dictionary<string, string>(10, StringComparer.Ordinal)
+            new Dictionary<string, string>(11, StringComparer.Ordinal)
             {
                 ["__WORKSPACE_TITLE__"] = HtmlPresentationHelpers.Encode(reportData.Workspace),
                 ["__GENERATED_AT__"] = HtmlPresentationHelpers.Encode(
@@ -42,6 +43,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 ["__MIN_DESCRIPTION_LENGTH__"] = reportData.MinimalDescriptionTextLength.ToString(CultureInfo.InvariantCulture),
                 ["__OPEN_PR_COUNT__"] = rows.Count.ToString(CultureInfo.InvariantCulture),
                 ["__TTFR_ALERTS__"] = overdueTtfrCount.ToString(CultureInfo.InvariantCulture),
+                ["__COMMENTS_TOTAL__"] = commentsTotal.ToString(CultureInfo.InvariantCulture),
                 ["__REQUEST_CHANGES_TOTAL__"] = requestChangesTotal.ToString(CultureInfo.InvariantCulture),
                 ["__APPROVALS_TOTAL__"] = approvalsTotal.ToString(CultureInfo.InvariantCulture),
                 ["__ROWS__"] = rowsHtml
@@ -99,12 +101,14 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
 
         return ApplyTemplate(
             rowTemplate,
-            new Dictionary<string, string>(23, StringComparer.Ordinal)
+            new Dictionary<string, string>(28, StringComparer.Ordinal)
             {
                 ["__INDEX__"] = index.ToString(CultureInfo.InvariantCulture),
                 ["__REPOSITORY_NAME__"] = HtmlPresentationHelpers.Encode(detail.RepositoryName),
                 ["__PULL_REQUEST_ID__"] = detail.PullRequestId.ToString(CultureInfo.InvariantCulture),
                 ["__TITLE__"] = HtmlPresentationHelpers.Encode(detail.Title),
+                ["__AUTHOR_DISPLAY_NAME_SORT__"] = HtmlPresentationHelpers.Encode(detail.AuthorDisplayName ?? "-"),
+                ["__AUTHOR_DISPLAY_NAME_DISPLAY__"] = BuildCompactAuthorDisplayName(detail.AuthorDisplayName),
                 ["__PULL_REQUEST_LINK__"] = BuildPullRequestLink(pullRequestUrl, detail.PullRequestId, detail.Title),
                 ["__REPOSITORY_LINK__"] = BuildLink(repositoryUrl, detail.RepositoryName),
                 ["__DESCRIPTION_LENGTH__"] = descriptionLength.ToString(CultureInfo.InvariantCulture),
@@ -119,6 +123,8 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                     .ToString(CultureInfo.InvariantCulture),
                 ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(
                     lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value)),
+                ["__COMMENTS_COUNT__"] = detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                ["__COMMENTS_TEXT__"] = detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
                 ["__REQUEST_CHANGES_COUNT__"] = detail.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
                 ["__REQUEST_CHANGES_TEXT__"] = HtmlPresentationHelpers.Encode(requestChangesText),
                 ["__REQUEST_CHANGES_BADGE__"] = BuildBadge(requestChangesText, "rc"),
@@ -182,6 +188,12 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         return text == "-"
             ? encodedText
             : $"<span class=\"badge {cssClass}\">{encodedText}</span>";
+    }
+
+    private static string BuildCompactAuthorDisplayName(string? authorDisplayName)
+    {
+        var lines = PresentationHelpers.SplitCompactDisplayName(authorDisplayName);
+        return string.Join("<br />", lines.Select(HtmlPresentationHelpers.Encode));
     }
 
     private static string BuildActivityBadge(PullRequestDetail detail)

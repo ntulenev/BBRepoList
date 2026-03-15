@@ -8,9 +8,11 @@ namespace BBRepoList.Models;
 /// <param name="CreatedOn">Pull request creation timestamp.</param>
 /// <param name="DescriptionText">Pull request description text.</param>
 /// <param name="AuthorId">Pull request author identifier when available.</param>
+/// <param name="AuthorDisplayName">Pull request author display name when available.</param>
 internal readonly record struct OpenPullRequest(
     int Id,
     string Title,
     DateTimeOffset CreatedOn,
     string? DescriptionText = null,
-    BitbucketId? AuthorId = null);
+    BitbucketId? AuthorId = null,
+    string? AuthorDisplayName = null);

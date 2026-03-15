@@ -46,6 +46,7 @@ public sealed class BitbucketOptionsTests
         options.AbandonedMonthsThreshold.Should().Be(12);
         options.LoadAbandonedRepositoriesStatistics.Should().BeTrue();
         options.RepositorySearchMode.Should().Be(RepositorySearchMode.Contains);
+        options.RepositorySearchPhrase.Should().BeNull();
     }
 
     [Fact(DisplayName = "Validation fails when base url is missing")]

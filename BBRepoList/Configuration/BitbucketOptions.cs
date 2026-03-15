@@ -95,6 +95,11 @@ public sealed class BitbucketOptions
     [EnumDataType(typeof(RepositorySearchMode))]
     public RepositorySearchMode RepositorySearchMode { get; init; } = RepositorySearchMode.Contains;
 
+    /// <summary>
+    /// Optional repository search phrase to use without prompting in console.
+    /// </summary>
+    public string? RepositorySearchPhrase { get; init; }
+
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

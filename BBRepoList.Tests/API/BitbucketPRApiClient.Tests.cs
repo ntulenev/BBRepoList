@@ -287,6 +287,8 @@ public sealed class BitbucketPRApiClientTests
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
         details[0].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 11, 0, 0, TimeSpan.Zero));
         details[0].HasCurrentUserDiscussion.Should().BeTrue();
+        details[0].AuthorDisplayName.Should().Be("Author 1");
+        details[0].CommentsCount.Should().Be(1);
         details[0].RequestChangesCount.Should().Be(2);
         details[0].HasCurrentUserRequestChanges.Should().BeTrue();
         details[0].ApprovalsCount.Should().Be(2);
@@ -296,6 +298,8 @@ public sealed class BitbucketPRApiClientTests
         details[1].FirstNonAuthorActivityOn.Should().BeNull();
         details[1].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 30, 0, TimeSpan.Zero));
         details[1].HasCurrentUserDiscussion.Should().BeFalse();
+        details[1].AuthorDisplayName.Should().Be("Author 2");
+        details[1].CommentsCount.Should().Be(1);
         details[1].RequestChangesCount.Should().Be(0);
         details[1].HasCurrentUserRequestChanges.Should().BeFalse();
         details[1].ApprovalsCount.Should().Be(1);
