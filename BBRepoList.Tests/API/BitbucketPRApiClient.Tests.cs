@@ -135,10 +135,8 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25";
-        var firstPullRequestUrl = "repositories/workspace/repo-1/pullrequests/101";
+        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
         var firstActivityUrl = "repositories/workspace/repo-1/pullrequests/101/activity?pagelen=25";
-        var secondPullRequestUrl = "repositories/workspace/repo-1/pullrequests/102";
         var secondActivityUrl = "repositories/workspace/repo-1/pullrequests/102/activity?pagelen=25";
 
         var pullRequestsDto = new PullRequestPageDto(
@@ -148,13 +146,34 @@ public sealed class BitbucketPRApiClientTests
                 Title: "Feature A",
                 CreatedOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
                 Description: "Detailed description for Feature A",
-                Author: new PullRequestAuthorDto("{author-1}", "Author 1")),
+                Author: new PullRequestAuthorDto("{author-1}", "Author 1"),
+                Participants:
+                [
+                    new PullRequestParticipantDto(
+                        User: new PullRequestAuthorDto("{reviewer-1}", "Reviewer 1"),
+                        State: "changes_requested"),
+                    new PullRequestParticipantDto(
+                        User: new PullRequestAuthorDto("{current-user}", "Current User"),
+                        State: "changes requested"),
+                    new PullRequestParticipantDto(
+                        User: new PullRequestAuthorDto("{approver-1}", "Approver 1"),
+                        State: "approved"),
+                    new PullRequestParticipantDto(
+                        User: new PullRequestAuthorDto("{current-user}", "Current User"),
+                        Approved: true)
+                ]),
             new PullRequestDto(
                 Id: 102,
                 Title: "Feature B",
                 CreatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
                 Summary: new PullRequestSummaryDto("Summary fallback for Feature B"),
-                Author: new PullRequestAuthorDto("{author-2}", "Author 2"))
+                Author: new PullRequestAuthorDto("{author-2}", "Author 2"),
+                Participants:
+                [
+                    new PullRequestParticipantDto(
+                        User: new PullRequestAuthorDto("{reviewer-2}", "Reviewer 2"),
+                        State: "approved")
+                ])
         ],
             null);
 
@@ -189,24 +208,6 @@ public sealed class BitbucketPRApiClientTests
         ],
             null);
 
-        var firstPullRequestDto = new PullRequestDto(
-            Id: 101,
-            Participants:
-            [
-                new PullRequestParticipantDto(
-                    User: new PullRequestAuthorDto("{reviewer-1}", "Reviewer 1"),
-                    State: "changes_requested"),
-                new PullRequestParticipantDto(
-                    User: new PullRequestAuthorDto("{current-user}", "Current User"),
-                    State: "changes requested"),
-                new PullRequestParticipantDto(
-                    User: new PullRequestAuthorDto("{approver-1}", "Approver 1"),
-                    State: "approved"),
-                new PullRequestParticipantDto(
-                    User: new PullRequestAuthorDto("{current-user}", "Current User"),
-                    Approved: true)
-            ]);
-
         var secondActivityDto = new PullRequestActivityPageDto(
         [
             new PullRequestActivityDto
@@ -225,15 +226,6 @@ public sealed class BitbucketPRApiClientTests
         ],
             null);
 
-        var secondPullRequestDto = new PullRequestDto(
-            Id: 102,
-            Participants:
-            [
-                new PullRequestParticipantDto(
-                    User: new PullRequestAuthorDto("{reviewer-2}", "Reviewer 2"),
-                    State: "approved")
-            ]);
-
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
@@ -242,23 +234,11 @@ public sealed class BitbucketPRApiClientTests
             .Callback(() => sendCalls++)
             .ReturnsAsync(pullRequestsDto);
         transport
-            .Setup(t => t.GetAsync<PullRequestDto>(
-                It.Is<Uri>(u => u.ToString() == firstPullRequestUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(firstPullRequestDto);
-        transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == firstActivityUrl),
                 It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ReturnsAsync(firstActivityDto);
-        transport
-            .Setup(t => t.GetAsync<PullRequestDto>(
-                It.Is<Uri>(u => u.ToString() == secondPullRequestUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(secondPullRequestDto);
         transport
             .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
                 It.Is<Uri>(u => u.ToString() == secondActivityUrl),
@@ -281,7 +261,7 @@ public sealed class BitbucketPRApiClientTests
             cts.Token);
 
         // Assert
-        sendCalls.Should().Be(5);
+        sendCalls.Should().Be(3);
         details.Should().HaveCount(2);
         details.Select(d => d.PullRequestId).Should().ContainInOrder(101, 102);
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
@@ -314,7 +294,7 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25";
+        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport

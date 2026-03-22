@@ -80,7 +80,10 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         try
         {
-            var openPullRequests = await GetOpenPullRequestsAsync(repositorySlug, cancellationToken).ConfigureAwait(false);
+            var openPullRequests = await GetOpenPullRequestsAsync(
+                repositorySlug,
+                currentUserId,
+                cancellationToken).ConfigureAwait(false);
 
             foreach (var pullRequest in openPullRequests)
             {
@@ -89,12 +92,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 var activities = await GetPullRequestActivitiesAsync(
                     repositorySlug,
                     pullRequest.Id,
-                    cancellationToken).ConfigureAwait(false);
-                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
-                    await GetPullRequestReviewStateAsync(
-                    repositorySlug,
-                    pullRequest.Id,
-                    currentUserId,
                     cancellationToken).ConfigureAwait(false);
 
                 var firstNonAuthorActivityOn = activities
@@ -125,10 +122,10 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     hasCurrentUserDiscussion,
                     pullRequest.DescriptionText,
                     commentsCount,
-                    requestChangesCount,
-                    hasCurrentUserRequestChanges,
-                    approvalsCount,
-                    hasCurrentUserApproval));
+                    pullRequest.RequestChangesCount,
+                    pullRequest.HasCurrentUserRequestChanges,
+                    pullRequest.ApprovalsCount,
+                    pullRequest.HasCurrentUserApproval));
             }
         }
         catch (HttpRequestException)
@@ -141,11 +138,24 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
     private async Task<IReadOnlyList<OpenPullRequest>> GetOpenPullRequestsAsync(
         string repositorySlug,
+        BitbucketId currentUserId,
         CancellationToken cancellationToken)
     {
         var escapedSlug = Uri.EscapeDataString(repositorySlug);
+        var fields = Uri.EscapeDataString(
+            "values.id," +
+            "values.title," +
+            "values.created_on," +
+            "values.description," +
+            "values.summary.raw," +
+            "values.author.uuid," +
+            "values.author.display_name," +
+            "values.participants.user.uuid," +
+            "values.participants.state," +
+            "values.participants.approved," +
+            "next");
         var url = new Uri(
-            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen={_options.PageLen}",
+            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen={_options.PageLen}&fields={fields}",
             UriKind.Relative);
 
         var pullRequests = new List<OpenPullRequest>();
@@ -171,6 +181,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 var descriptionText = string.IsNullOrWhiteSpace(pullRequestDto.Description)
                     ? pullRequestDto.Summary?.Raw
                     : pullRequestDto.Description;
+                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
+                    GetPullRequestReviewState(pullRequestDto.Participants, currentUserId);
 
                 pullRequests.Add(new OpenPullRequest(
                     pullRequestDto.Id.Value,
@@ -180,7 +192,11 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     pullRequestDto.CreatedOn.Value,
                     descriptionText,
                     authorId,
-                    pullRequestDto.Author?.DisplayName));
+                    pullRequestDto.Author?.DisplayName,
+                    requestChangesCount,
+                    hasCurrentUserRequestChanges,
+                    approvalsCount,
+                    hasCurrentUserApproval));
             }
 
             url = page.Next;
@@ -232,57 +248,42 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
     }
 
-    private async Task<(int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)>
-        GetPullRequestReviewStateAsync(
-        string repositorySlug,
-        int pullRequestId,
-        BitbucketId currentUserId,
-        CancellationToken cancellationToken)
+    private (int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)
+        GetPullRequestReviewState(
+        ICollection<PullRequestParticipantDto>? participants,
+        BitbucketId currentUserId)
     {
-        var escapedSlug = Uri.EscapeDataString(repositorySlug);
-        var url = new Uri(
-            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests/{pullRequestId}",
-            UriKind.Relative);
-
-        try
-        {
-            var pullRequest = await _transport.GetAsync<PullRequestDto>(url, cancellationToken).ConfigureAwait(false);
-            if (pullRequest?.Participants is null || pullRequest.Participants.Count == 0)
-            {
-                return default;
-            }
-
-            var requestChangesCount = 0;
-            var hasCurrentUserRequestChanges = false;
-            var approvalsCount = 0;
-            var hasCurrentUserApproval = false;
-
-            foreach (var participant in pullRequest.Participants)
-            {
-                if (!BitbucketId.TryCreate(participant.User?.Uuid, out var participantId))
-                {
-                    continue;
-                }
-
-                if (_jsonParser.IsRequestChangesState(participant.State))
-                {
-                    requestChangesCount++;
-                    hasCurrentUserRequestChanges |= participantId == currentUserId;
-                }
-
-                if (_jsonParser.IsApprovalState(participant))
-                {
-                    approvalsCount++;
-                    hasCurrentUserApproval |= participantId == currentUserId;
-                }
-            }
-
-            return (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval);
-        }
-        catch (HttpRequestException)
+        if (participants is null || participants.Count == 0)
         {
             return default;
         }
+
+        var requestChangesCount = 0;
+        var hasCurrentUserRequestChanges = false;
+        var approvalsCount = 0;
+        var hasCurrentUserApproval = false;
+
+        foreach (var participant in participants)
+        {
+            if (!BitbucketId.TryCreate(participant.User?.Uuid, out var participantId))
+            {
+                continue;
+            }
+
+            if (_jsonParser.IsRequestChangesState(participant.State))
+            {
+                requestChangesCount++;
+                hasCurrentUserRequestChanges |= participantId == currentUserId;
+            }
+
+            if (_jsonParser.IsApprovalState(participant))
+            {
+                approvalsCount++;
+                hasCurrentUserApproval |= participantId == currentUserId;
+            }
+        }
+
+        return (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval);
     }
 
     private readonly IBitbucketTransport _transport;
