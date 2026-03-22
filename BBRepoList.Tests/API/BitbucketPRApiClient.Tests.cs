@@ -252,7 +252,6 @@ public sealed class BitbucketPRApiClientTests
             new DateTimeOffset(2023, 1, 10, 0, 0, 0, TimeSpan.Zero),
             null,
             "repo-1");
-        repository.UpdateOpenPullRequestsCount(2);
 
         // Act
         var details = await client.GetOpenPullRequestDetailsAsync(
@@ -263,6 +262,7 @@ public sealed class BitbucketPRApiClientTests
         // Assert
         sendCalls.Should().Be(3);
         details.Should().HaveCount(2);
+        repository.OpenPullRequestsCount.Should().Be(2);
         details.Select(d => d.PullRequestId).Should().ContainInOrder(101, 102);
         details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
         details[0].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 11, 0, 0, TimeSpan.Zero));
@@ -306,7 +306,6 @@ public sealed class BitbucketPRApiClientTests
 
         var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
         var repository = new Repository("Repo-1", null, null, "repo-1");
-        repository.UpdateOpenPullRequestsCount(1);
 
         // Act
         var details = await client.GetOpenPullRequestDetailsAsync(
@@ -316,6 +315,38 @@ public sealed class BitbucketPRApiClientTests
 
         // Assert
         sendCalls.Should().Be(1);
+        details.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync updates repository count and returns empty list when no open pull requests exist")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenNoOpenPullRequestsExistUpdatesRepositoryCount()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var sendCalls = 0;
+        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageDto>(
+                It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(new PullRequestPageDto([], null));
+
+        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
+        var repository = new Repository("Repo-1", null, null, "repo-1");
+
+        // Act
+        var details = await client.GetOpenPullRequestDetailsAsync(
+            repository,
+            new BitbucketId("{current-user}"),
+            cts.Token);
+
+        // Assert
+        sendCalls.Should().Be(1);
+        repository.OpenPullRequestsCount.Should().Be(0);
         details.Should().BeEmpty();
     }
 

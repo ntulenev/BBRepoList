@@ -302,6 +302,49 @@ public sealed class RepositoryServiceTests
         progressReports.Should().HaveCount(2);
     }
 
+    [Fact(DisplayName = "GetRepositoriesAsync skips open pull requests statistics when PR details are enabled")]
+    [Trait("Category", "Unit")]
+    public async Task GetRepositoriesAsyncWhenPrDetailsAreEnabledDoesNotLoadOpenPullRequestStatistics()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var apiCalls = 0;
+        var pages = new List<Repository[]>
+        {
+            new[]
+            {
+                new Repository("Repo-1", null, null, "repo-1"),
+                new Repository("Repo-2", null, null, "repo-2")
+            }
+        };
+
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
+            .Callback(() => apiCalls++)
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+
+        var progressReports = new List<RepoLoadProgress>();
+        var progress = new Progress<RepoLoadProgress>(progressReports.Add);
+
+        var service = new RepositoryService(
+            api.Object,
+            prApi.Object,
+            Options.Create(CreateOptions(
+                loadOpenPullRequestsStatistics: true,
+                prDetailsEnabled: true)));
+
+        // Act
+        var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
+
+        // Assert
+        repositories.Should().HaveCount(2);
+        repositories.Select(r => r.OpenPullRequestsCount).Should().OnlyContain(count => count == 0);
+        apiCalls.Should().Be(1);
+        progressReports.Should().HaveCount(2);
+        progressReports.Should().OnlyContain(report => !report.IsLoadingPullRequestStatistics);
+    }
+
     [Fact(DisplayName = "GetRepositoriesAsync loads open pull requests with configured concurrency threshold")]
     [Trait("Category", "Unit")]
     public async Task GetRepositoriesAsyncWhenThresholdIsConfiguredRespectsConfiguredConcurrency()
@@ -378,7 +421,6 @@ public sealed class RepositoryServiceTests
         var repo2 = new Repository("Repo-2", null, null, "repo-2");
         repo2.UpdateOpenPullRequestsCount(2);
         var repoWithoutOpenPrs = new Repository("Repo-3", null, null, "repo-3");
-        repoWithoutOpenPrs.UpdateOpenPullRequestsCount(0);
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
@@ -412,6 +454,9 @@ public sealed class RepositoryServiceTests
                     null,
                     true)
             ]);
+        prApi.Setup(m => m.GetOpenPullRequestDetailsAsync(repoWithoutOpenPrs, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
+            .Callback(() => prDetailCalls++)
+            .ReturnsAsync([]);
 
         var progressReports = new List<PullRequestDetailsLoadProgress>();
         var progress = new Progress<PullRequestDetailsLoadProgress>(progressReports.Add);
@@ -429,11 +474,11 @@ public sealed class RepositoryServiceTests
             cts.Token);
 
         // Assert
-        prDetailCalls.Should().Be(2);
+        prDetailCalls.Should().Be(3);
         details.Should().HaveCount(2);
         details.Select(d => d.RepositoryName).Should().ContainInOrder("Repo-2", "Repo-1");
-        progressReports.Should().Contain(report => report.LoadedRepositories == 0 && report.TotalRepositories == 2);
-        progressReports.Should().Contain(report => report.LoadedRepositories == 2 && report.TotalRepositories == 2);
+        progressReports.Should().Contain(report => report.LoadedRepositories == 0 && report.TotalRepositories == 3);
+        progressReports.Should().Contain(report => report.LoadedRepositories == 3 && report.TotalRepositories == 3);
     }
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns empty list when disabled in options")]

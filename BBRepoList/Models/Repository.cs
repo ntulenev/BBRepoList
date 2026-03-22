@@ -61,8 +61,7 @@ public sealed class Repository
     /// <summary>
     /// Gets a value indicating whether open pull request details can be loaded.
     /// </summary>
-    public bool CanLoadOpenPullRequestDetails =>
-        !string.IsNullOrWhiteSpace(Slug) && OpenPullRequestsCount != 0;
+    public bool CanLoadOpenPullRequestDetails => !string.IsNullOrWhiteSpace(Slug);
 
     /// <summary>
     /// Updates open pull requests count.

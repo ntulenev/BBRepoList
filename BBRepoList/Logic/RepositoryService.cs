@@ -55,7 +55,7 @@ public sealed class RepositoryService : IRepoService
             progress?.Report(new RepoLoadProgress(seen, matched));
         }
 
-        if (!_loadOpenPullRequestsStatistics)
+        if (!_loadOpenPullRequestsStatistics || _loadPullRequestDetails)
         {
             return matchedRepositories;
         }

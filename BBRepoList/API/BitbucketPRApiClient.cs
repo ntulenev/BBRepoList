@@ -84,6 +84,12 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 repositorySlug,
                 currentUserId,
                 cancellationToken).ConfigureAwait(false);
+            repository.UpdateOpenPullRequestsCount(openPullRequests.Count);
+
+            if (openPullRequests.Count == 0)
+            {
+                return [];
+            }
 
             foreach (var pullRequest in openPullRequests)
             {
