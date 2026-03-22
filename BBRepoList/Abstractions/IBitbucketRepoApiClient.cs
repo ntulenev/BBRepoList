@@ -10,8 +10,9 @@ public interface IBitbucketRepoApiClient
     /// <summary>
     /// Streams repositories for the configured Bitbucket workspace.
     /// </summary>
+    /// <param name="filterPattern">Repository filter applied on the server side when possible.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Asynchronous stream of repositories.</returns>
-    IAsyncEnumerable<Repository> GetRepositoriesAsync(CancellationToken cancellationToken);
+    IAsyncEnumerable<Repository> GetRepositoriesAsync(FilterPattern filterPattern, CancellationToken cancellationToken);
 }
 

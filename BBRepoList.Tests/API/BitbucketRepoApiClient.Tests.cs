@@ -78,7 +78,7 @@ public sealed class BitbucketRepoApiClientTests
         var client = new BitbucketRepoApiClient(transport.Object, Options.Create(CreateOptions()));
         // Act
         var repositories = new List<Repository>();
-        await foreach (var repository in client.GetRepositoriesAsync(cts.Token))
+        await foreach (var repository in client.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
         {
             repositories.Add(repository);
         }
@@ -110,7 +110,7 @@ public sealed class BitbucketRepoApiClientTests
 
         // Act
         var repositories = new List<Repository>();
-        await foreach (var repository in client.GetRepositoriesAsync(cts.Token))
+        await foreach (var repository in client.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
         {
             repositories.Add(repository);
         }
@@ -142,7 +142,7 @@ public sealed class BitbucketRepoApiClientTests
         // Act
         Func<Task> act = async () =>
         {
-            await foreach (var _ in client.GetRepositoriesAsync(cts.Token))
+            await foreach (var _ in client.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
             {
             }
         };
@@ -151,6 +151,62 @@ public sealed class BitbucketRepoApiClientTests
         await act.Should()
             .ThrowAsync<HttpRequestException>();
 
+        sendCalls.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetRepositoriesAsync appends server-side repository name filter when search phrase is provided")]
+    [Trait("Category", "Unit")]
+    public async Task GetRepositoriesAsyncWhenFilterIsProvidedAppendsQueryParameter()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var sendCalls = 0;
+        var requestUrl = "repositories/workspace?pagelen=25&q=name%20~%20%22App%22";
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<RepoPageDto>(
+                It.Is<Uri>(u => u.ToString() == requestUrl),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(new RepoPageDto([], null));
+
+        var client = new BitbucketRepoApiClient(transport.Object, Options.Create(CreateOptions()));
+
+        // Act
+        await foreach (var _ in client.GetRepositoriesAsync(new FilterPattern("App"), cts.Token))
+        {
+        }
+
+        // Assert
+        sendCalls.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetRepositoriesAsync escapes server-side repository name filter")]
+    [Trait("Category", "Unit")]
+    public async Task GetRepositoriesAsyncWhenFilterContainsSpecialCharactersEscapesQueryParameter()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var sendCalls = 0;
+        var requestUrl = "repositories/workspace?pagelen=25&q=name%20~%20%22A%5C%22B%5C%5CRepo%22";
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<RepoPageDto>(
+                It.Is<Uri>(u => u.ToString() == requestUrl),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(new RepoPageDto([], null));
+
+        var client = new BitbucketRepoApiClient(transport.Object, Options.Create(CreateOptions()));
+
+        // Act
+        await foreach (var _ in client.GetRepositoriesAsync(new FilterPattern("A\"B\\Repo"), cts.Token))
+        {
+        }
+
+        // Assert
         sendCalls.Should().Be(1);
     }
 

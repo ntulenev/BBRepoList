@@ -85,9 +85,9 @@ public sealed class RepositoryServiceTests
         };
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
-        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
             .Callback(() => apiCalls++)
-            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
 
         var expectedRepositories = pages.SelectMany(static page => page).ToHashSet();
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
@@ -159,9 +159,9 @@ public sealed class RepositoryServiceTests
         };
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
-        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern("app"), cts.Token))
             .Callback(() => apiCalls++)
-            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
 
         var expectedRepositories = pages
             .SelectMany(static page => page)
@@ -232,9 +232,9 @@ public sealed class RepositoryServiceTests
         };
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
-        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern("XXX"), cts.Token))
             .Callback(() => apiCalls++)
-            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
 
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
 
@@ -280,9 +280,9 @@ public sealed class RepositoryServiceTests
         };
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
-        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
             .Callback(() => apiCalls++)
-            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
 
         var progressReports = new List<RepoLoadProgress>();
@@ -322,8 +322,8 @@ public sealed class RepositoryServiceTests
         var maxInFlight = 0;
 
         var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
-        api.Setup(m => m.GetRepositoriesAsync(cts.Token))
-            .Returns<CancellationToken>(token => StreamRepositories(pages, token));
+        api.Setup(m => m.GetRepositoriesAsync(new FilterPattern(null), cts.Token))
+            .Returns<FilterPattern, CancellationToken>((_, token) => StreamRepositories(pages, token));
 
         var expectedRepositories = pages.SelectMany(static page => page).ToHashSet();
         var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);

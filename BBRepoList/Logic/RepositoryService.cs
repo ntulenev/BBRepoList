@@ -42,7 +42,7 @@ public sealed class RepositoryService : IRepoService
         var seen = 0;
         var matched = 0;
 
-        await foreach (var repository in _api.GetRepositoriesAsync(cancellationToken).ConfigureAwait(false))
+        await foreach (var repository in _api.GetRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false))
         {
             seen++;
 

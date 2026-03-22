@@ -30,9 +30,10 @@ public sealed class BitbucketRepoApiClient : IBitbucketRepoApiClient
 
     /// <inheritdoc />
     public async IAsyncEnumerable<Repository> GetRepositoriesAsync(
+        FilterPattern filterPattern,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var url = new Uri($"repositories/{_options.Workspace}?pagelen={_options.PageLen}", UriKind.Relative);
+        var url = BuildRepositoriesUri(filterPattern);
 
         while (url is not null)
         {
@@ -46,6 +47,48 @@ public sealed class BitbucketRepoApiClient : IBitbucketRepoApiClient
 
             url = page.Next;
         }
+    }
+
+    private Uri BuildRepositoriesUri(FilterPattern filterPattern)
+    {
+        var path = $"repositories/{_options.Workspace}?pagelen={_options.PageLen}";
+        var query = BuildRepositoryQuery(filterPattern);
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            path += $"&q={Uri.EscapeDataString(query)}";
+        }
+
+        return new Uri(path, UriKind.Relative);
+    }
+
+    private static string? BuildRepositoryQuery(FilterPattern filterPattern)
+    {
+        if (!filterPattern.HasFilter)
+        {
+            return null;
+        }
+
+        return filterPattern.SearchMode switch
+        {
+            RepositorySearchMode.Contains => BuildNameQuery(filterPattern.Phrase!),
+            RepositorySearchMode.StartWith => BuildNameQuery(filterPattern.Phrase!),
+            _ => throw new InvalidOperationException($"Unsupported search mode: {filterPattern.SearchMode}.")
+        };
+    }
+
+    private static string BuildNameQuery(string filterValue)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filterValue);
+        var escapedFilter = EscapeQueryStringLiteral(filterValue);
+        return $"name ~ \"{escapedFilter}\"";
+    }
+
+    private static string EscapeQueryStringLiteral(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     private async Task<RepoPage> GetRepositoriesPageAsync(Uri url, CancellationToken cancellationToken)
