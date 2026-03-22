@@ -197,6 +197,7 @@ public sealed class ConsoleAppTests
         output.Should().Contain("2025-01-20");
         output.Should().Contain("5");
         output.Should().Contain("2");
+        output.Should().Contain("Generation time:");
     }
 
     [Fact(DisplayName = "RunAsync uses configured repository search mode from options")]

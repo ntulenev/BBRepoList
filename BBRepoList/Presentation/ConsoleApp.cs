@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 
 using BBRepoList.Abstractions;
 using BBRepoList.Configuration;
@@ -48,6 +49,7 @@ public sealed class ConsoleApp
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        var executionTime = Stopwatch.StartNew();
         ShowTitle();
 
         var authenticatedUser = await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false);
@@ -76,12 +78,17 @@ public sealed class ConsoleApp
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
         RenderHtmlReport(sortedRepositories, pullRequestDetails, filterPattern);
         RenderPdfReport(sortedRepositories, pullRequestDetails, filterPattern);
-        ShowDone();
+        executionTime.Stop();
+        ShowDone(executionTime.Elapsed);
     }
 
     private static void ShowTitle() => AnsiConsole.MarkupLine("[bold green]Bitbucket Repository List[/]");
 
-    private static void ShowDone() => AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
+    private static void ShowDone(TimeSpan elapsed)
+    {
+        AnsiConsole.MarkupLine("\n[bold green]Done.[/]");
+        AnsiConsole.MarkupLine($"[grey]Generation time:[/] [green]{elapsed:hh\\:mm\\:ss}[/]");
+    }
 
     private async Task<BitbucketUser?> TryAuthenticateAsync(CancellationToken cancellationToken)
     {
