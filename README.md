@@ -6,7 +6,7 @@
 BBRepoList is a lightweight console utility for listing repositories in a Bitbucket workspace.
 
 It supports:
-- Name filtering (`Contains` or `StartWith`, case-insensitive; `Contains` is default)
+- Name filtering (`Contains` or `StartWith`, case-insensitive; `Contains` is default) with Bitbucket server-side prefiltering
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
 - Optional open PR details report with review/activity signals (`Open for`, `TTFR`, `Last Activity`, `RC`, `AP`, `My Activity`)
@@ -18,6 +18,8 @@ It supports:
 This app uses the Bitbucket Cloud REST API:
 
 `https://developer.atlassian.com/cloud/bitbucket/rest/`
+
+Repository name filtering is applied on the Bitbucket side via the repository list query first, then verified locally to preserve the configured `Contains` / `StartWith` behavior.
 
 ## Configuration (`appsettings.json`)
 Example:
@@ -50,7 +52,8 @@ Example:
     },
     "AbandonedMonthsThreshold": 12,
     "LoadAbandonedRepositoriesStatistics": true,
-    "RepositorySearchMode": "StartWith"
+    "RepositorySearchMode": "StartWith",
+    "RepositorySearchPhrase": "ADF."
   }
 }
 ```
@@ -76,6 +79,7 @@ Settings:
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 - `RepositorySearchMode`: Repository name search mode from configuration. Supported: `Contains`, `StartWith`. Default: `Contains`.
+- `RepositorySearchPhrase`: Optional repository search phrase from configuration. When provided, repository loading uses Bitbucket server-side filtering first and then applies the same filter locally for consistency.
 
 ## Output
 The app renders:
