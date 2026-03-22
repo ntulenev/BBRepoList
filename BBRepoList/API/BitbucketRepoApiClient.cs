@@ -51,7 +51,8 @@ public sealed class BitbucketRepoApiClient : IBitbucketRepoApiClient
 
     private Uri BuildRepositoriesUri(FilterPattern filterPattern)
     {
-        var path = $"repositories/{_options.Workspace}?pagelen={_options.PageLen}";
+        var fields = Uri.EscapeDataString("values.name,values.slug,values.created_on,values.updated_on,next");
+        var path = $"repositories/{_options.Workspace}?pagelen={_options.PageLen}&fields={fields}";
         var query = BuildRepositoryQuery(filterPattern);
         if (!string.IsNullOrWhiteSpace(query))
         {

@@ -53,7 +53,7 @@ public sealed class BitbucketRepoApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var firstUrl = "repositories/workspace?pagelen=25";
+        var firstUrl = "repositories/workspace?pagelen=25&fields=values.name%2Cvalues.slug%2Cvalues.created_on%2Cvalues.updated_on%2Cnext";
         var nextUrl = "next";
 
         var firstDto = new RepoPageDto(
@@ -96,7 +96,7 @@ public sealed class BitbucketRepoApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var requestUrl = "repositories/workspace?pagelen=25";
+        var requestUrl = "repositories/workspace?pagelen=25&fields=values.name%2Cvalues.slug%2Cvalues.created_on%2Cvalues.updated_on%2Cnext";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
@@ -127,7 +127,7 @@ public sealed class BitbucketRepoApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var requestUrl = "repositories/workspace?pagelen=25";
+        var requestUrl = "repositories/workspace?pagelen=25&fields=values.name%2Cvalues.slug%2Cvalues.created_on%2Cvalues.updated_on%2Cnext";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
@@ -161,7 +161,7 @@ public sealed class BitbucketRepoApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var requestUrl = "repositories/workspace?pagelen=25&q=name%20~%20%22App%22";
+        var requestUrl = "repositories/workspace?pagelen=25&fields=values.name%2Cvalues.slug%2Cvalues.created_on%2Cvalues.updated_on%2Cnext&q=name%20~%20%22App%22";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
@@ -189,7 +189,7 @@ public sealed class BitbucketRepoApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var requestUrl = "repositories/workspace?pagelen=25&q=name%20~%20%22A%5C%22B%5C%5CRepo%22";
+        var requestUrl = "repositories/workspace?pagelen=25&fields=values.name%2Cvalues.slug%2Cvalues.created_on%2Cvalues.updated_on%2Cnext&q=name%20~%20%22A%5C%22B%5C%5CRepo%22";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport

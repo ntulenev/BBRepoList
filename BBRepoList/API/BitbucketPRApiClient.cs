@@ -217,8 +217,20 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         CancellationToken cancellationToken)
     {
         var escapedSlug = Uri.EscapeDataString(repositorySlug);
+        var fields = Uri.EscapeDataString(
+            "values.actor.uuid," +
+            "values.user.uuid," +
+            "values.date," +
+            "values.created_on," +
+            "values.updated_on," +
+            "values.comment," +
+            "values.approval," +
+            "values.request_changes," +
+            "values.changes_requested," +
+            "values.update," +
+            "next");
         var url = new Uri(
-            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests/{pullRequestId}/activity?pagelen={_options.PageLen}",
+            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests/{pullRequestId}/activity?pagelen={_options.PageLen}&fields={fields}",
             UriKind.Relative);
 
         var activities = new List<PullRequestActivityEntry>();

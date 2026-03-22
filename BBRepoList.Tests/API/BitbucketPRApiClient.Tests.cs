@@ -136,8 +136,8 @@ public sealed class BitbucketPRApiClientTests
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
         var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
-        var firstActivityUrl = "repositories/workspace/repo-1/pullrequests/101/activity?pagelen=25";
-        var secondActivityUrl = "repositories/workspace/repo-1/pullrequests/102/activity?pagelen=25";
+        var firstActivityUrl = "repositories/workspace/repo-1/pullrequests/101/activity?pagelen=25&fields=values.actor.uuid%2Cvalues.user.uuid%2Cvalues.date%2Cvalues.created_on%2Cvalues.updated_on%2Cvalues.comment%2Cvalues.approval%2Cvalues.request_changes%2Cvalues.changes_requested%2Cvalues.update%2Cnext";
+        var secondActivityUrl = "repositories/workspace/repo-1/pullrequests/102/activity?pagelen=25&fields=values.actor.uuid%2Cvalues.user.uuid%2Cvalues.date%2Cvalues.created_on%2Cvalues.updated_on%2Cvalues.comment%2Cvalues.approval%2Cvalues.request_changes%2Cvalues.changes_requested%2Cvalues.update%2Cnext";
 
         var pullRequestsDto = new PullRequestPageDto(
         [
