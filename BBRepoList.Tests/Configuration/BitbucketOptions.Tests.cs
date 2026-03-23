@@ -41,6 +41,8 @@ public sealed class BitbucketOptionsTests
         options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
         options.PullRequestDetails.MinimalDescriptionTextLength.Should().Be(1);
         options.PullRequestDetails.LoadThreshold.Should().Be(8);
+        options.Telemetry.Should().NotBeNull();
+        options.Telemetry.Enabled.Should().BeFalse();
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
         options.OpenPullRequestsLoadThreshold.Should().Be(8);
         options.AbandonedMonthsThreshold.Should().Be(12);
@@ -408,6 +410,29 @@ public sealed class BitbucketOptionsTests
 
         // Assert
         results.Should().Contain(result => result.MemberNames.Contains("PullRequestDetails"));
+    }
+
+    [Fact(DisplayName = "Validation fails when telemetry options are null")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenTelemetryOptionsAreNullReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            Telemetry = null!
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("Telemetry"));
     }
 
     [Fact(DisplayName = "Validation fails when TTFR threshold is below one")]

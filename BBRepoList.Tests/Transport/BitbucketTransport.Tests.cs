@@ -24,9 +24,10 @@ public sealed class BitbucketTransportTests
         // Arrange
         HttpClient http = null!;
         var retryPolicy = new BitbucketRetryPolicy(Options.Create(CreateOptions()));
+        var telemetryService = CreateTelemetryService();
 
         // Act
-        Action act = () => _ = new BitbucketTransport(http, retryPolicy);
+        Action act = () => _ = new BitbucketTransport(http, retryPolicy, telemetryService);
 
         // Assert
         act.Should()
@@ -40,9 +41,27 @@ public sealed class BitbucketTransportTests
         // Arrange
         using var http = new HttpClient();
         IBitbucketRetryPolicy retryPolicy = null!;
+        var telemetryService = CreateTelemetryService();
 
         // Act
-        Action act = () => _ = new BitbucketTransport(http, retryPolicy);
+        Action act = () => _ = new BitbucketTransport(http, retryPolicy, telemetryService);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when telemetry service is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenTelemetryServiceIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        using var http = new HttpClient();
+        var retryPolicy = new BitbucketRetryPolicy(Options.Create(CreateOptions()));
+        IBitbucketTelemetryService telemetryService = null!;
+
+        // Act
+        Action act = () => _ = new BitbucketTransport(http, retryPolicy, telemetryService);
 
         // Assert
         act.Should()
@@ -80,7 +99,10 @@ public sealed class BitbucketTransportTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var transport = new BitbucketTransport(http, new BitbucketRetryPolicy(Options.Create(CreateOptions())));
+        var transport = new BitbucketTransport(
+            http,
+            new BitbucketRetryPolicy(Options.Create(CreateOptions())),
+            CreateTelemetryService(expectedTrackCalls: 1));
 
         // Act
         var result = await transport.GetAsync<BitbucketUserDto>(new Uri("user", UriKind.Relative), cts.Token);
@@ -119,7 +141,10 @@ public sealed class BitbucketTransportTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var transport = new BitbucketTransport(http, new BitbucketRetryPolicy(Options.Create(CreateOptions())));
+        var transport = new BitbucketTransport(
+            http,
+            new BitbucketRetryPolicy(Options.Create(CreateOptions())),
+            CreateTelemetryService(expectedTrackCalls: 1));
 
         // Act
         var result = await transport.GetAsync<BitbucketUserDto>(new Uri("user", UriKind.Relative), cts.Token);
@@ -159,7 +184,10 @@ public sealed class BitbucketTransportTests
             .ReturnsAsync(response);
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var transport = new BitbucketTransport(http, new BitbucketRetryPolicy(Options.Create(CreateOptions())));
+        var transport = new BitbucketTransport(
+            http,
+            new BitbucketRetryPolicy(Options.Create(CreateOptions())),
+            CreateTelemetryService(expectedTrackCalls: 1));
 
         // Act
         Func<Task> act = () => transport.GetAsync<BitbucketUserDto>(new Uri("user", UriKind.Relative), cts.Token);
@@ -210,7 +238,10 @@ public sealed class BitbucketTransportTests
             .ReturnsAsync(() => responses.Dequeue());
 
         using var http = new HttpClient(handler.Object) { BaseAddress = baseUri };
-        var transport = new BitbucketTransport(http, new BitbucketRetryPolicy(Options.Create(CreateOptions(retryCount: 1))));
+        var transport = new BitbucketTransport(
+            http,
+            new BitbucketRetryPolicy(Options.Create(CreateOptions(retryCount: 1))),
+            CreateTelemetryService(expectedTrackCalls: 2));
 
         // Act
         var result = await transport.GetAsync<BitbucketUserDto>(new Uri("user", UriKind.Relative), cts.Token);
@@ -229,7 +260,21 @@ public sealed class BitbucketTransportTests
             AuthEmail = "user@example.test",
             AuthApiToken = "token",
             PageLen = 25,
-            RetryCount = retryCount
+            RetryCount = retryCount,
+            Telemetry = new BitbucketTelemetryOptions()
         };
+    }
+
+    private static IBitbucketTelemetryService CreateTelemetryService(int expectedTrackCalls = 0)
+    {
+        var telemetryService = new Mock<IBitbucketTelemetryService>(MockBehavior.Strict);
+        var requestUri = new Uri("user", UriKind.Relative);
+
+        for (var i = 0; i < expectedTrackCalls; i++)
+        {
+            telemetryService.Setup(service => service.TrackRequest(requestUri));
+        }
+
+        return telemetryService.Object;
     }
 }

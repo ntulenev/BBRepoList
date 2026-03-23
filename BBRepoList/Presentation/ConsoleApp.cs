@@ -23,23 +23,27 @@ public sealed class ConsoleApp
     /// <param name="htmlReportRenderer">HTML report renderer.</param>
     /// <param name="pdfReportRenderer">PDF report renderer.</param>
     /// <param name="repoService">Repository loading service.</param>
+    /// <param name="telemetryService">Bitbucket API telemetry service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
                       IHtmlReportRenderer htmlReportRenderer,
                       IPdfReportRenderer pdfReportRenderer,
                       IRepoService repoService,
+                      IBitbucketTelemetryService telemetryService,
                       IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
         ArgumentNullException.ThrowIfNull(htmlReportRenderer);
         ArgumentNullException.ThrowIfNull(pdfReportRenderer);
         ArgumentNullException.ThrowIfNull(repoService);
+        ArgumentNullException.ThrowIfNull(telemetryService);
         ArgumentNullException.ThrowIfNull(options);
 
         _bitbucketAuthApiClient = bitbucketAuthApiClient;
         _htmlReportRenderer = htmlReportRenderer;
         _pdfReportRenderer = pdfReportRenderer;
         _repoService = repoService;
+        _telemetryService = telemetryService;
         _options = options.Value;
     }
 
@@ -78,6 +82,7 @@ public sealed class ConsoleApp
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
         RenderHtmlReport(sortedRepositories, pullRequestDetails, filterPattern);
         RenderPdfReport(sortedRepositories, pullRequestDetails, filterPattern);
+        RenderTelemetrySummary();
         executionTime.Stop();
         ShowDone(executionTime.Elapsed);
     }
@@ -464,6 +469,37 @@ public sealed class ConsoleApp
         _htmlReportRenderer.RenderReport(reportData);
     }
 
+    private void RenderTelemetrySummary()
+    {
+        var snapshot = _telemetryService.GetSnapshot();
+        if (!snapshot.IsEnabled || snapshot.TotalRequests == 0)
+        {
+            return;
+        }
+
+        AnsiConsole.MarkupLine(
+            $"\n[bold]Bitbucket API request statistics[/] [grey](total: {snapshot.TotalRequests.ToString(CultureInfo.InvariantCulture)})[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Double)
+            .Expand()
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Bitbucket API[/]"))
+            .AddColumn(new TableColumn("[green]Requests[/]").RightAligned());
+
+        for (var i = 0; i < snapshot.RequestStatistics.Count; i++)
+        {
+            var statistic = snapshot.RequestStatistics[i];
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(statistic.ApiName),
+                Markup.Escape(statistic.RequestCount.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
     private static string FormatDuration(TimeSpan duration)
     {
         var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
@@ -526,6 +562,7 @@ public sealed class ConsoleApp
     private readonly IHtmlReportRenderer _htmlReportRenderer;
     private readonly IPdfReportRenderer _pdfReportRenderer;
     private readonly IRepoService _repoService;
+    private readonly IBitbucketTelemetryService _telemetryService;
     private readonly BitbucketOptions _options;
 
 }

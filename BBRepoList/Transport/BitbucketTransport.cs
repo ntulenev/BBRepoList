@@ -13,12 +13,18 @@ public sealed class BitbucketTransport : IBitbucketTransport
     /// </summary>
     /// <param name="http">HTTP client instance.</param>
     /// <param name="retryPolicy">Retry policy instance.</param>
-    public BitbucketTransport(HttpClient http, IBitbucketRetryPolicy retryPolicy)
+    /// <param name="telemetryService">Telemetry service instance.</param>
+    public BitbucketTransport(
+        HttpClient http,
+        IBitbucketRetryPolicy retryPolicy,
+        IBitbucketTelemetryService telemetryService)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(retryPolicy);
+        ArgumentNullException.ThrowIfNull(telemetryService);
         _http = http;
         _retryPolicy = retryPolicy;
+        _telemetryService = telemetryService;
     }
 
     /// <inheritdoc />
@@ -32,6 +38,7 @@ public sealed class BitbucketTransport : IBitbucketTransport
         {
             try
             {
+                _telemetryService.TrackRequest(url);
                 using var resp = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
                 if (resp.IsSuccessStatusCode)
@@ -61,4 +68,5 @@ public sealed class BitbucketTransport : IBitbucketTransport
 
     private readonly HttpClient _http;
     private readonly IBitbucketRetryPolicy _retryPolicy;
+    private readonly IBitbucketTelemetryService _telemetryService;
 }

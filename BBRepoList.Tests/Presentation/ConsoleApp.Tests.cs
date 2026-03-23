@@ -30,7 +30,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -49,7 +49,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -68,7 +68,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -87,7 +87,27 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when telemetry service is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenTelemetryServiceIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict).Object;
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict).Object;
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict).Object;
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict).Object;
+        IBitbucketTelemetryService telemetryService = null!;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, telemetryService, options);
 
         // Assert
         act.Should()
@@ -106,7 +126,7 @@ public sealed class ConsoleAppTests
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -172,7 +192,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -241,7 +261,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchMode: RepositorySearchMode.StartWith));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         await RunWithTestConsoleAsync(async console =>
         {
@@ -296,7 +316,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchPhrase: "Config Repo"));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async _ =>
         {
@@ -352,7 +372,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -435,7 +455,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -527,7 +547,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -593,7 +613,7 @@ public sealed class ConsoleAppTests
             prDetailsEnabled: true,
             ttfrThresholdHours: 4,
             minimalDescriptionTextLength: 15));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -654,7 +674,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -714,7 +734,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -774,7 +794,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions(
             abandonedMonthsThreshold: 12,
             loadAbandonedRepositoriesStatistics: false));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -786,6 +806,64 @@ public sealed class ConsoleAppTests
 
         // Assert
         output.Should().NotContain("Abandoned repositories");
+    }
+
+    [Fact(DisplayName = "RunAsync renders telemetry summary when telemetry is enabled")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenTelemetryEnabledRendersTelemetrySummary()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
+                cts.Token))
+            .ReturnsAsync([]);
+
+        var telemetrySnapshot = new BitbucketTelemetrySnapshot(
+            true,
+            4,
+            [
+                new BitbucketApiRequestStatistic("GET /repositories/{workspace}", 2),
+                new BitbucketApiRequestStatistic("GET /repositories/{workspace}/{repository}/pullrequests (count)", 1),
+                new BitbucketApiRequestStatistic("GET /user", 1)
+            ]);
+        var options = Options.Create(CreateOptions(telemetryEnabled: true));
+        var app = new ConsoleApp(
+            api.Object,
+            htmlReportRenderer.Object,
+            pdfReportRenderer.Object,
+            repoService.Object,
+            CreateTelemetryService(telemetrySnapshot),
+            options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        output.Should().Contain("Bitbucket API request statistics");
+        output.Should().Contain("total: 4");
+        output.Should().Contain("GET /repositories/{workspace}");
+        output.Should().Contain("GET /repositories/{workspace}/{repository}/pullrequests");
+        output.Should().Contain("(count)");
+        output.Should().Contain("GET /user");
     }
 
     private static Repository CreateRepositoryWithOpenPullRequestsCount(
@@ -807,7 +885,8 @@ public sealed class ConsoleAppTests
         int ttfrThresholdHours = 4,
         int minimalDescriptionTextLength = 1,
         RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains,
-        string? repositorySearchPhrase = null)
+        string? repositorySearchPhrase = null,
+        bool telemetryEnabled = false)
     {
         return new BitbucketOptions
         {
@@ -833,11 +912,24 @@ public sealed class ConsoleAppTests
                 TtfrThresholdHours = ttfrThresholdHours,
                 MinimalDescriptionTextLength = minimalDescriptionTextLength
             },
+            Telemetry = new BitbucketTelemetryOptions
+            {
+                Enabled = telemetryEnabled
+            },
             AbandonedMonthsThreshold = abandonedMonthsThreshold,
             LoadAbandonedRepositoriesStatistics = loadAbandonedRepositoriesStatistics,
             RepositorySearchMode = repositorySearchMode,
             RepositorySearchPhrase = repositorySearchPhrase
         };
+    }
+
+    private static IBitbucketTelemetryService CreateTelemetryService(BitbucketTelemetrySnapshot? snapshot = null)
+    {
+        var telemetryService = new Mock<IBitbucketTelemetryService>(MockBehavior.Strict);
+        telemetryService.Setup(service => service.GetSnapshot())
+            .Returns(snapshot ?? new BitbucketTelemetrySnapshot(false, 0, []));
+
+        return telemetryService.Object;
     }
 
     private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)

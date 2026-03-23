@@ -68,6 +68,12 @@ public sealed class BitbucketOptions
     public PullRequestDetailsOptions PullRequestDetails { get; init; } = new();
 
     /// <summary>
+    /// Bitbucket API request telemetry settings.
+    /// </summary>
+    [Required]
+    public BitbucketTelemetryOptions Telemetry { get; init; } = new();
+
+    /// <summary>
     /// Whether open pull request statistics should be loaded.
     /// </summary>
     public bool LoadOpenPullRequestsStatistics { get; init; } = true;
@@ -105,21 +111,34 @@ public sealed class BitbucketOptions
     {
         ArgumentNullException.ThrowIfNull(validationContext);
 
-        if (PullRequestDetails is null)
+        var nestedResults = new List<ValidationResult>();
+        if (PullRequestDetails is not null)
         {
-            yield break;
+            _ = Validator.TryValidateObject(
+                PullRequestDetails,
+                new ValidationContext(PullRequestDetails),
+                nestedResults,
+                validateAllProperties: true);
+
+            foreach (var result in nestedResults)
+            {
+                yield return result;
+            }
         }
 
-        var nestedResults = new List<ValidationResult>();
-        _ = Validator.TryValidateObject(
-            PullRequestDetails,
-            new ValidationContext(PullRequestDetails),
-            nestedResults,
-            validateAllProperties: true);
-
-        foreach (var result in nestedResults)
+        nestedResults.Clear();
+        if (Telemetry is not null)
         {
-            yield return result;
+            _ = Validator.TryValidateObject(
+                Telemetry,
+                new ValidationContext(Telemetry),
+                nestedResults,
+                validateAllProperties: true);
+
+            foreach (var result in nestedResults)
+            {
+                yield return result;
+            }
         }
     }
 }
