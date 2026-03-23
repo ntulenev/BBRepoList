@@ -10,6 +10,7 @@ It supports:
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
 - Optional open PR details report with review/activity signals (`Open for`, `TTFR`, `Last Activity`, `RC`, `AP`, `My Activity`)
+- Optional Bitbucket API request telemetry in the final console report
 - Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
 - PDF report export (QuestPDF)
 - Interactive HTML report export for open PR analysis
@@ -44,6 +45,9 @@ Example:
     },
     "LoadOpenPullRequestsStatistics": true,
     "OpenPullRequestsLoadThreshold": 4,
+    "Telemetry": {
+      "Enabled": true
+    },
     "PullRequestDetails": {
       "IsEnabled": true,
       "TtfrThresholdHours": 4,
@@ -72,6 +76,7 @@ Settings:
 - `Html.OpenInBrowser`: Opens generated HTML report in the default browser after save. Default: `false`.
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
+- `Telemetry.Enabled`: Enables/disables Bitbucket API request telemetry collection and output. When enabled, the app prints the total number of Bitbucket API requests and grouped request counts by API endpoint in the final console report only. Default: `false`.
 - `PullRequestDetails.IsEnabled`: Enables/disables loading open PR details report. Default: `false`.
 - `PullRequestDetails.TtfrThresholdHours`: TTFR threshold in hours. When no first non-author response exists and open PR age exceeds this value, TTFR cell shows red `ALERT`. Default: `4`.
 - `PullRequestDetails.MinimalDescriptionTextLength`: Minimal PR description text length. In the description length column, values below this threshold are shown in red. Default: `1`.
@@ -87,6 +92,7 @@ The app renders:
 - `Repositories with open pull requests` table (shown only when at least one repo has open PRs), ordered by `Created on` (oldest -> newest).
 - `Open PR details` table (shown only when `PullRequestDetails.IsEnabled` and open PRs exist).
 - `Abandoned repositories` table (shown only when `LoadAbandonedRepositoriesStatistics` is enabled and inactivity is above the configured threshold), including `Created on`, `Last activity on`, `Months inactive`.
+- `Bitbucket API request statistics` table (shown only when `Telemetry.Enabled` is enabled and at least one Bitbucket API request was sent). This section is printed only in the final console report.
 - PDF report file with the same report sections as the console output.
 - HTML report file for open PR details.
 
