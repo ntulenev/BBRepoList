@@ -10,6 +10,7 @@ It supports:
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
 - Optional open PR details report with review/activity signals (`Open for`, `TTFR`, `Last Activity`, `RC`, `AP`, `My Activity`)
+- Local disk cache for open PR details to reduce repeated heavy Bitbucket activity requests
 - Optional Bitbucket API request telemetry in the final console report
 - Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
 - PDF report export (QuestPDF)
@@ -85,6 +86,21 @@ Settings:
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 - `RepositorySearchMode`: Repository name search mode from configuration. Supported: `Contains`, `StartWith`. Default: `Contains`.
 - `RepositorySearchPhrase`: Optional repository search phrase from configuration. When provided, repository loading uses Bitbucket server-side filtering first and then applies the same filter locally for consistency.
+
+## Pull Request Details Cache
+When `PullRequestDetails.IsEnabled` is turned on, BBRepoList uses a local disk cache for the expensive PR activity-based part of `PullRequestDetail`.
+
+How it works:
+- On every run, the app still loads the lightweight list of open PRs from Bitbucket for each repository.
+- For each open PR, the app builds a fingerprint from lightweight Bitbucket fields such as `id`, `updated_on`, `state`, `source.commit.hash`, `comment_count`, `task_count`, and participants review state.
+- If the fingerprint matches the local cache, the app reuses cached activity-derived detail data and skips the heavy PR activity request.
+- If the fingerprint changed or the cache entry is missing, the app reloads PR activity from Bitbucket, recalculates the detail, and updates the cache.
+- If a PR is no longer present in the Bitbucket open PR list, its cache entry is removed automatically.
+- If the cache file is missing, corrupted, or unreadable, the app ignores it and rebuilds data from Bitbucket.
+
+Cache location:
+- By default, cache files are stored next to the application under `cache/pull-request-details`.
+- Cache files are split by workspace, current user, and repository, so different repositories do not share the same file.
 
 ## Output
 The app renders:

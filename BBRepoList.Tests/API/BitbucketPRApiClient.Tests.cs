@@ -3,6 +3,7 @@ using System.Text.Json;
 using BBRepoList.Abstractions;
 using BBRepoList.API;
 using BBRepoList.API.Helpers;
+using BBRepoList.Caching;
 using BBRepoList.Configuration;
 using BBRepoList.Models;
 using BBRepoList.Transport;
@@ -24,14 +25,14 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         IBitbucketTransport transport = null!;
         var parser = new BitbucketJsonParser();
+        var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport, parser, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport, parser, cache, options);
 
         // Assert
-        act.Should()
-            .Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact(DisplayName = "Constructor throws when json parser is null")]
@@ -41,14 +42,31 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         IBitbucketJsonParser parser = null!;
+        var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
 
         // Assert
-        act.Should()
-            .Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact(DisplayName = "Constructor throws when cache is null")]
+    [Trait("Category", "Unit")]
+    public void ConstructorWhenCacheIsNullThrowsArgumentNullException()
+    {
+        // Arrange
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        var parser = new BitbucketJsonParser();
+        IPullRequestDetailsCache cache = null!;
+        var options = Options.Create(CreateOptions());
+
+        // Act
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact(DisplayName = "Constructor throws when options are null")]
@@ -58,14 +76,14 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
+        var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
 
         // Assert
-        act.Should()
-            .Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact(DisplayName = "PopulateOpenPullRequestCountAsync enriches open pull requests count when slug is present")]
@@ -75,27 +93,23 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
-
         var repository = new Repository("Repo-1", null, null, "repo-1");
-        var pullRequestSummaryDto = new PullRequestPageSummaryDto(9);
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
-                It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestSummaryUrl("repo-1")),
                 It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
-            .ReturnsAsync(pullRequestSummaryDto);
+            .ReturnsAsync(new PullRequestPageSummaryDto(9));
 
-        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
+        var client = CreateClient(transport.Object, new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object);
 
         // Act
         await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
 
         // Assert
         sendCalls.Should().Be(1);
-        repository.Name.Should().Be("Repo-1");
         repository.OpenPullRequestsCount.Should().Be(9);
     }
 
@@ -106,185 +120,361 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var sendCalls = 0;
-        var pullRequestSummaryUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=1&fields=size";
         var repository = new Repository("Repo-1", null, null, "repo-1");
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageSummaryDto>(
-                It.Is<Uri>(u => u.ToString() == pullRequestSummaryUrl),
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestSummaryUrl("repo-1")),
                 It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
-        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
+        var client = CreateClient(transport.Object, new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object);
 
         // Act
         await client.PopulateOpenPullRequestCountAsync(repository, cts.Token);
 
         // Assert
         sendCalls.Should().Be(1);
-        repository.Name.Should().Be("Repo-1");
         repository.OpenPullRequestsCount.Should().Be(0);
     }
 
-    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns mapped open pull request details")]
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync uses cache hit without loading activity")]
     [Trait("Category", "Unit")]
-    public async Task GetOpenPullRequestDetailsAsyncWhenResponsesAreValidReturnsDetails()
+    public async Task GetOpenPullRequestDetailsAsyncWhenCacheHitSkipsActivityRequest()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
-        var sendCalls = 0;
-        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
-        var firstActivityUrl = "repositories/workspace/repo-1/pullrequests/101/activity?pagelen=25&fields=values.actor.uuid%2Cvalues.user.uuid%2Cvalues.date%2Cvalues.created_on%2Cvalues.updated_on%2Cvalues.comment%2Cvalues.approval%2Cvalues.request_changes%2Cvalues.changes_requested%2Cvalues.update%2Cnext";
-        var secondActivityUrl = "repositories/workspace/repo-1/pullrequests/102/activity?pagelen=25&fields=values.actor.uuid%2Cvalues.user.uuid%2Cvalues.date%2Cvalues.created_on%2Cvalues.updated_on%2Cvalues.comment%2Cvalues.approval%2Cvalues.request_changes%2Cvalues.changes_requested%2Cvalues.update%2Cnext";
-
-        var pullRequestsDto = new PullRequestPageDto(
-        [
-            new PullRequestDto(
-                Id: 101,
-                Title: "Feature A",
-                CreatedOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
-                Description: "Detailed description for Feature A",
-                Author: new PullRequestAuthorDto("{author-1}", "Author 1"),
-                Participants:
-                [
-                    new PullRequestParticipantDto(
-                        User: new PullRequestAuthorDto("{reviewer-1}", "Reviewer 1"),
-                        State: "changes_requested"),
-                    new PullRequestParticipantDto(
-                        User: new PullRequestAuthorDto("{current-user}", "Current User"),
-                        State: "changes requested"),
-                    new PullRequestParticipantDto(
-                        User: new PullRequestAuthorDto("{approver-1}", "Approver 1"),
-                        State: "approved"),
-                    new PullRequestParticipantDto(
-                        User: new PullRequestAuthorDto("{current-user}", "Current User"),
-                        Approved: true)
-                ]),
-            new PullRequestDto(
-                Id: 102,
-                Title: "Feature B",
-                CreatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
-                Summary: new PullRequestSummaryDto("Summary fallback for Feature B"),
-                Author: new PullRequestAuthorDto("{author-2}", "Author 2"),
-                Participants:
-                [
-                    new PullRequestParticipantDto(
-                        User: new PullRequestAuthorDto("{reviewer-2}", "Reviewer 2"),
-                        State: "approved")
-                ])
-        ],
-            null);
-
-        var firstActivityDto = new PullRequestActivityPageDto(
-        [
-            new PullRequestActivityDto
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var pullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            commentCount: 1,
+            taskCount: 2);
+        var firstActivityPage = CreateActivityPage(
+            """
             {
-                Properties = new Dictionary<string, JsonElement>
-                {
-                    ["approval"] = ParseJsonElement(
-                        """
-                        {
-                          "user": { "uuid": "{reviewer-1}" },
-                          "date": "2026-02-24T10:00:00+00:00"
-                        }
-                        """)
-                }
+              "approval": {
+                "user": { "uuid": "{reviewer-1}" },
+                "date": "2026-02-24T10:00:00+00:00"
+              }
+            }
+            """,
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{current-user}" },
+                "created_on": "2026-02-24T11:00:00+00:00"
+              }
+            }
+            """);
+
+        var firstTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = firstActivityPage
             },
-            new PullRequestActivityDto
-            {
-                Properties = new Dictionary<string, JsonElement>
-                {
-                    ["comment"] = ParseJsonElement(
-                        """
-                        {
-                          "user": { "uuid": "{current-user}" },
-                          "created_on": "2026-02-24T11:00:00+00:00"
-                        }
-                        """)
-                }
-            }
-        ],
-            null);
+            out var firstSendCounter,
+            cts.Token);
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
+        var firstClient = CreateClient(firstTransport.Object, cache);
 
-        var secondActivityDto = new PullRequestActivityPageDto(
-        [
-            new PullRequestActivityDto
-            {
-                Properties = new Dictionary<string, JsonElement>
-                {
-                    ["comment"] = ParseJsonElement(
-                        """
-                        {
-                          "user": { "uuid": "{author-2}" },
-                          "created_on": "2026-02-24T10:30:00+00:00"
-                        }
-                        """)
-                }
-            }
-        ],
-            null);
+        await firstClient.GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
 
-        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
-        transport
-            .Setup(t => t.GetAsync<PullRequestPageDto>(
-                It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(pullRequestsDto);
-        transport
-            .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
-                It.Is<Uri>(u => u.ToString() == firstActivityUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(firstActivityDto);
-        transport
-            .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
-                It.Is<Uri>(u => u.ToString() == secondActivityUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(secondActivityDto);
-
-        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
-        var repository = new Repository(
-            "Repo-1",
-            new DateTimeOffset(2023, 1, 10, 0, 0, 0, TimeSpan.Zero),
-            null,
-            "repo-1");
+        var secondTransport = CreateTransportForPullRequestListOnly(
+            "repo-1",
+            [pullRequest],
+            out var secondSendCounter,
+            cts.Token);
+        var secondClient = CreateClient(secondTransport.Object, cache);
 
         // Act
-        var details = await client.GetOpenPullRequestDetailsAsync(
-            repository,
-            new BitbucketId("{current-user}"),
-            cts.Token);
+        var details = await secondClient.GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
 
         // Assert
-        sendCalls.Should().Be(3);
-        details.Should().HaveCount(2);
-        repository.OpenPullRequestsCount.Should().Be(2);
-        details.Select(d => d.PullRequestId).Should().ContainInOrder(101, 102);
-        details[0].FirstNonAuthorActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
-        details[0].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 11, 0, 0, TimeSpan.Zero));
-        details[0].HasCurrentUserDiscussion.Should().BeTrue();
-        details[0].AuthorDisplayName.Should().Be("Author 1");
+        firstSendCounter.Count.Should().Be(2);
+        secondSendCounter.Count.Should().Be(1);
+        details.Should().HaveCount(1);
+        details[0].PullRequestId.Should().Be(101);
         details[0].CommentsCount.Should().Be(1);
-        details[0].RequestChangesCount.Should().Be(2);
-        details[0].HasCurrentUserRequestChanges.Should().BeTrue();
-        details[0].ApprovalsCount.Should().Be(2);
-        details[0].HasCurrentUserApproval.Should().BeTrue();
-        details[0].TimeToFirstResponse.Should().Be(TimeSpan.FromHours(2));
-        details[0].DescriptionText.Should().Be("Detailed description for Feature A");
-        details[1].FirstNonAuthorActivityOn.Should().BeNull();
-        details[1].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 10, 30, 0, TimeSpan.Zero));
-        details[1].HasCurrentUserDiscussion.Should().BeFalse();
-        details[1].AuthorDisplayName.Should().Be("Author 2");
-        details[1].CommentsCount.Should().Be(1);
-        details[1].RequestChangesCount.Should().Be(0);
-        details[1].HasCurrentUserRequestChanges.Should().BeFalse();
-        details[1].ApprovalsCount.Should().Be(1);
-        details[1].HasCurrentUserApproval.Should().BeFalse();
-        details[1].DescriptionText.Should().Be("Summary fallback for Feature B");
+        details[0].HasCurrentUserDiscussion.Should().BeTrue();
+        details[0].LastActivityOn.Should().Be(new DateTimeOffset(2026, 2, 24, 11, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync loads activity and saves cache on cache miss")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenCacheMissLoadsActivityAndStoresCache()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var pullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            commentCount: 1,
+            taskCount: 0);
+        var activityPage = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{current-user}" },
+                "created_on": "2026-02-24T09:30:00+00:00"
+              }
+            }
+            """);
+
+        var transport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = activityPage
+            },
+            out var sendCounter,
+            cts.Token);
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
+        var client = CreateClient(transport.Object, cache);
+
+        // Act
+        var details = await client.GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        // Assert
+        sendCounter.Count.Should().Be(2);
+        details.Should().HaveCount(1);
+        details[0].CommentsCount.Should().Be(1);
+        Directory.GetFiles(cacheDirectory.Path, "*.json", SearchOption.AllDirectories).Should().ContainSingle();
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync invalidates cache when pull request fingerprint changes")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenPullRequestChangesReloadsActivity()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var originalPullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            commentCount: 1,
+            taskCount: 0);
+        var changedPullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 12, 0, 0, TimeSpan.Zero),
+            commentCount: 2,
+            taskCount: 1);
+        var originalActivityPage = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{reviewer-1}" },
+                "created_on": "2026-02-24T09:30:00+00:00"
+              }
+            }
+            """);
+        var changedActivityPage = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{reviewer-1}" },
+                "created_on": "2026-02-24T09:30:00+00:00"
+              }
+            }
+            """,
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{current-user}" },
+                "created_on": "2026-02-24T12:30:00+00:00"
+              }
+            }
+            """);
+
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
+        var firstTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [originalPullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = originalActivityPage
+            },
+            out var firstSendCounter,
+            cts.Token);
+        var firstClient = CreateClient(firstTransport.Object, cache);
+        await firstClient.GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        var secondTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [changedPullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = changedActivityPage
+            },
+            out var secondSendCounter,
+            cts.Token);
+        var secondClient = CreateClient(secondTransport.Object, cache);
+
+        // Act
+        var details = await secondClient.GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        // Assert
+        firstSendCounter.Count.Should().Be(2);
+        secondSendCounter.Count.Should().Be(2);
+        details.Should().HaveCount(1);
+        details[0].CommentsCount.Should().Be(2);
+        details[0].HasCurrentUserDiscussion.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync cleans cache when pull request disappears")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenPullRequestDisappearsRemovesItFromCache()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var pullRequest101 = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero));
+        var pullRequest102 = CreatePullRequestDto(
+            102,
+            createdOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero));
+        var activity101 = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{reviewer-1}" },
+                "created_on": "2026-02-24T09:30:00+00:00"
+              }
+            }
+            """);
+        var activity102 = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{reviewer-2}" },
+                "created_on": "2026-02-24T10:30:00+00:00"
+              }
+            }
+            """);
+
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
+
+        var firstTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest101, pullRequest102],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = activity101,
+                [102] = activity102
+            },
+            out var firstSendCounter,
+            cts.Token);
+        await CreateClient(firstTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        var secondTransport = CreateTransportForPullRequestListOnly(
+            "repo-1",
+            [pullRequest101],
+            out var secondSendCounter,
+            cts.Token);
+        await CreateClient(secondTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        var thirdTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest101, pullRequest102],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [102] = activity102
+            },
+            out var thirdSendCounter,
+            cts.Token);
+
+        // Act
+        var details = await CreateClient(thirdTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        // Assert
+        firstSendCounter.Count.Should().Be(3);
+        secondSendCounter.Count.Should().Be(1);
+        thirdSendCounter.Count.Should().Be(2);
+        details.Should().HaveCount(2);
+        details.Select(detail => detail.PullRequestId).Should().ContainInOrder(101, 102);
+    }
+
+    [Fact(DisplayName = "GetOpenPullRequestDetailsAsync ignores corrupted cache and recalculates details")]
+    [Trait("Category", "Unit")]
+    public async Task GetOpenPullRequestDetailsAsyncWhenCacheIsCorruptedFallsBackToBitbucket()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var pullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero));
+        var activityPage = CreateActivityPage(
+            """
+            {
+              "comment": {
+                "user": { "uuid": "{current-user}" },
+                "created_on": "2026-02-24T10:00:00+00:00"
+              }
+            }
+            """);
+
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
+        var firstTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = activityPage
+            },
+            out _,
+            cts.Token);
+        await CreateClient(firstTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        var cacheFilePath = Directory.GetFiles(cacheDirectory.Path, "*.json", SearchOption.AllDirectories).Single();
+        await File.WriteAllTextAsync(cacheFilePath, "{ bad json", cts.Token);
+
+        var secondTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [pullRequest],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = activityPage
+            },
+            out var secondSendCounter,
+            cts.Token);
+
+        // Act
+        var details = await CreateClient(secondTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        // Assert
+        secondSendCounter.Count.Should().Be(2);
+        details.Should().HaveCount(1);
+        details[0].HasCurrentUserDiscussion.Should().BeTrue();
     }
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync returns empty list when lookup fails")]
@@ -293,25 +483,22 @@ public sealed class BitbucketPRApiClientTests
     {
         // Arrange
         using var cts = new CancellationTokenSource();
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
         var sendCalls = 0;
-        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
 
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
-                It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestsUrl("repo-1")),
                 It.Is<CancellationToken>(token => token == cts.Token)))
             .Callback(() => sendCalls++)
             .ThrowsAsync(new HttpRequestException("boom"));
 
-        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
-        var repository = new Repository("Repo-1", null, null, "repo-1");
+        var client = CreateClient(transport.Object, new FilePullRequestDetailsCache(cacheDirectory.Path));
 
         // Act
-        var details = await client.GetOpenPullRequestDetailsAsync(
-            repository,
-            new BitbucketId("{current-user}"),
-            cts.Token);
+        var details = await client.GetOpenPullRequestDetailsAsync(repository, new BitbucketId("{current-user}"), cts.Token);
 
         // Assert
         sendCalls.Should().Be(1);
@@ -324,36 +511,210 @@ public sealed class BitbucketPRApiClientTests
     {
         // Arrange
         using var cts = new CancellationTokenSource();
-        var sendCalls = 0;
-        var pullRequestsUrl = "repositories/workspace/repo-1/pullrequests?state=OPEN&pagelen=25&fields=values.id%2Cvalues.title%2Cvalues.created_on%2Cvalues.description%2Cvalues.summary.raw%2Cvalues.author.uuid%2Cvalues.author.display_name%2Cvalues.participants.user.uuid%2Cvalues.participants.state%2Cvalues.participants.approved%2Cnext";
+        using var cacheDirectory = new TemporaryDirectory();
+        var repository = CreateRepository();
+        var currentUserId = new BitbucketId("{current-user}");
+        var cache = new FilePullRequestDetailsCache(cacheDirectory.Path);
 
+        var firstTransport = CreateTransportForPullRequestDetails(
+            "repo-1",
+            [CreatePullRequestDto(101)],
+            new Dictionary<int, PullRequestActivityPageDto>
+            {
+                [101] = CreateActivityPage(
+                    """
+                    {
+                      "comment": {
+                        "user": { "uuid": "{reviewer-1}" },
+                        "created_on": "2026-02-24T10:00:00+00:00"
+                      }
+                    }
+                    """)
+            },
+            out _,
+            cts.Token);
+        await CreateClient(firstTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        var secondTransport = CreateTransportForPullRequestListOnly(
+            "repo-1",
+            [],
+            out var secondSendCounter,
+            cts.Token);
+
+        // Act
+        var details = await CreateClient(secondTransport.Object, cache)
+            .GetOpenPullRequestDetailsAsync(repository, currentUserId, cts.Token);
+
+        // Assert
+        secondSendCounter.Count.Should().Be(1);
+        repository.OpenPullRequestsCount.Should().Be(0);
+        details.Should().BeEmpty();
+        Directory.GetFiles(cacheDirectory.Path, "*.json", SearchOption.AllDirectories).Should().BeEmpty();
+    }
+
+    private static BitbucketPRApiClient CreateClient(IBitbucketTransport transport, IPullRequestDetailsCache cache) =>
+        new(transport, new BitbucketJsonParser(), cache, Options.Create(CreateOptions()));
+
+    private static Mock<IBitbucketTransport> CreateTransportForPullRequestDetails(
+        string repositorySlug,
+        IReadOnlyList<PullRequestDto> pullRequests,
+        IReadOnlyDictionary<int, PullRequestActivityPageDto> activityPagesByPullRequestId,
+        out RequestCounter sendCounter,
+        CancellationToken cancellationToken)
+    {
+        var requestCounter = new RequestCounter();
+        sendCounter = requestCounter;
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageDto>(
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestsUrl(repositorySlug)),
+                It.Is<CancellationToken>(token => token == cancellationToken)))
+            .Callback(() => requestCounter.Count++)
+            .ReturnsAsync(new PullRequestPageDto([.. pullRequests], null));
+
+        foreach (var activityPage in activityPagesByPullRequestId)
+        {
+            var pullRequestId = activityPage.Key;
+            transport
+                .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestActivityUrl(repositorySlug, pullRequestId)),
+                It.Is<CancellationToken>(token => token == cancellationToken)))
+                .Callback(() => requestCounter.Count++)
+                .ReturnsAsync(activityPage.Value);
+        }
+
+        return transport;
+    }
+
+    private static Mock<IBitbucketTransport> CreateTransportForPullRequestListOnly(
+        string repositorySlug,
+        IReadOnlyList<PullRequestDto> pullRequests,
+        out RequestCounter sendCounter,
+        CancellationToken cancellationToken)
+    {
+        var requestCounter = new RequestCounter();
+        sendCounter = requestCounter;
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         transport
             .Setup(t => t.GetAsync<PullRequestPageDto>(
-                It.Is<Uri>(u => u.ToString() == pullRequestsUrl),
-                It.Is<CancellationToken>(token => token == cts.Token)))
-            .Callback(() => sendCalls++)
-            .ReturnsAsync(new PullRequestPageDto([], null));
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestsUrl(repositorySlug)),
+                It.Is<CancellationToken>(token => token == cancellationToken)))
+            .Callback(() => requestCounter.Count++)
+            .ReturnsAsync(new PullRequestPageDto([.. pullRequests], null));
 
-        var client = new BitbucketPRApiClient(transport.Object, new BitbucketJsonParser(), Options.Create(CreateOptions()));
-        var repository = new Repository("Repo-1", null, null, "repo-1");
-
-        // Act
-        var details = await client.GetOpenPullRequestDetailsAsync(
-            repository,
-            new BitbucketId("{current-user}"),
-            cts.Token);
-
-        // Assert
-        sendCalls.Should().Be(1);
-        repository.OpenPullRequestsCount.Should().Be(0);
-        details.Should().BeEmpty();
+        return transport;
     }
 
-    private static JsonElement ParseJsonElement(string json)
+    private static PullRequestDto CreatePullRequestDto(
+        int id,
+        DateTimeOffset? createdOn = null,
+        DateTimeOffset? updatedOn = null,
+        string? state = "OPEN",
+        string? sourceCommitHash = "abcdef123456",
+        int? commentCount = 0,
+        int? taskCount = 0,
+        string? description = "Detailed description",
+        string? summary = null,
+        string? title = null,
+        string? authorUuid = "{author-1}",
+        string? authorDisplayName = "Author 1",
+        ICollection<PullRequestParticipantDto>? participants = null)
+    {
+        return new PullRequestDto(
+            Id: id,
+            Title: title ?? $"Feature {id}",
+            CreatedOn: createdOn ?? new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+            UpdatedOn: updatedOn ?? new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            State: state,
+            Description: description,
+            Summary: summary is null ? null : new PullRequestSummaryDto(summary),
+            Author: new PullRequestAuthorDto(authorUuid, authorDisplayName),
+            Source: new PullRequestSourceDto(new PullRequestCommitDto(sourceCommitHash)),
+            CommentCount: commentCount,
+            TaskCount: taskCount,
+            Participants: participants ?? CreateParticipants());
+    }
+
+    private static ICollection<PullRequestParticipantDto> CreateParticipants() =>
+    [
+        new PullRequestParticipantDto(
+            User: new PullRequestAuthorDto("{reviewer-1}", "Reviewer 1"),
+            State: "changes_requested"),
+        new PullRequestParticipantDto(
+            User: new PullRequestAuthorDto("{current-user}", "Current User"),
+            Approved: true)
+    ];
+
+    private static PullRequestActivityPageDto CreateActivityPage(params string[] activityJsonPayloads)
+    {
+        return new PullRequestActivityPageDto(
+        [
+            .. activityJsonPayloads.Select(static json => new PullRequestActivityDto
+            {
+                Properties = ParseActivityJson(json)
+            })
+        ],
+            null);
+    }
+
+    private static Dictionary<string, JsonElement> ParseActivityJson(string json)
     {
         using var document = JsonDocument.Parse(json);
-        return document.RootElement.Clone();
+        return document.RootElement.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value.Clone(), StringComparer.Ordinal);
+    }
+
+    private static Repository CreateRepository() =>
+        new(
+            "Repo-1",
+            new DateTimeOffset(2023, 1, 10, 0, 0, 0, TimeSpan.Zero),
+            null,
+            "repo-1");
+
+    private static string BuildPullRequestSummaryUrl(string repositorySlug) =>
+        $"repositories/workspace/{repositorySlug}/pullrequests?state=OPEN&pagelen=1&fields=size";
+
+    private static string BuildPullRequestsUrl(string repositorySlug)
+    {
+        var fields = Uri.EscapeDataString(
+            "values.id," +
+            "values.title," +
+            "values.created_on," +
+            "values.updated_on," +
+            "values.state," +
+            "values.description," +
+            "values.summary.raw," +
+            "values.author.uuid," +
+            "values.author.display_name," +
+            "values.source.commit.hash," +
+            "values.comment_count," +
+            "values.task_count," +
+            "values.participants.user.uuid," +
+            "values.participants.state," +
+            "values.participants.approved," +
+            "next");
+
+        return $"repositories/workspace/{repositorySlug}/pullrequests?state=OPEN&pagelen=25&fields={fields}";
+    }
+
+    private static string BuildPullRequestActivityUrl(string repositorySlug, int pullRequestId)
+    {
+        var fields = Uri.EscapeDataString(
+            "values.actor.uuid," +
+            "values.user.uuid," +
+            "values.date," +
+            "values.created_on," +
+            "values.updated_on," +
+            "values.comment," +
+            "values.approval," +
+            "values.request_changes," +
+            "values.changes_requested," +
+            "values.update," +
+            "next");
+
+        return $"repositories/workspace/{repositorySlug}/pullrequests/{pullRequestId}/activity?pagelen=25&fields={fields}";
     }
 
     private static BitbucketOptions CreateOptions()
@@ -368,5 +729,40 @@ public sealed class BitbucketPRApiClientTests
             RetryCount = 0
         };
     }
-}
 
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        public TemporaryDirectory()
+        {
+            Path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "BBRepoList.Tests",
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public string Path { get; }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Path))
+                {
+                    Directory.Delete(Path, recursive: true);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private sealed class RequestCounter
+    {
+        public int Count { get; set; }
+    }
+}

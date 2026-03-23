@@ -13,6 +13,7 @@ namespace BBRepoList.Models;
 /// <param name="HasCurrentUserRequestChanges">Whether current user currently requests changes.</param>
 /// <param name="ApprovalsCount">Active approvals count.</param>
 /// <param name="HasCurrentUserApproval">Whether current user currently approves the pull request.</param>
+/// <param name="CacheFingerprint">Fingerprint built from lightweight pull request fields for cache validation.</param>
 internal readonly record struct OpenPullRequest(
     int Id,
     string Title,
@@ -23,4 +24,5 @@ internal readonly record struct OpenPullRequest(
     int RequestChangesCount = 0,
     bool HasCurrentUserRequestChanges = false,
     int ApprovalsCount = 0,
-    bool HasCurrentUserApproval = false);
+    bool HasCurrentUserApproval = false,
+    string? CacheFingerprint = null);

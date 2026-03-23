@@ -1,6 +1,7 @@
 using BBRepoList.Abstractions;
 using BBRepoList.API;
 using BBRepoList.API.Helpers;
+using BBRepoList.Caching;
 using BBRepoList.Configuration;
 using BBRepoList.Logic;
 using BBRepoList.Presentation;
@@ -44,6 +45,7 @@ builder.Services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, htt
 
 builder.Services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
 builder.Services.AddSingleton<IBitbucketTelemetryService, BitbucketTelemetryService>();
+builder.Services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
 builder.Services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
 builder.Services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
 builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
