@@ -10,6 +10,7 @@ It supports:
 - Repository metadata (`Created on`, `Last updated`)
 - Open pull request count per matched repository
 - Optional open PR details report with review/activity signals (`Open for`, `TTFR`, `Last Activity`, `RC`, `AP`, `My Activity`)
+- Optional recently merged PRs report for a configurable number of days
 - Local disk cache for open PR details to reduce repeated heavy Bitbucket activity requests
 - Optional Bitbucket API request telemetry in the final console report
 - Additional summary tables (`Repositories with open pull requests`, `Abandoned repositories`)
@@ -41,7 +42,7 @@ Example:
     },
     "Html": {
       "Enabled": true,
-      "OutputPath": "bbrepolist-open-pr-details.html",
+      "OutputPath": "bbrepolist-pr-details.html",
       "OpenInBrowser": false
     },
     "LoadOpenPullRequestsStatistics": true,
@@ -53,6 +54,11 @@ Example:
       "IsEnabled": true,
       "TtfrThresholdHours": 4,
       "MinimalDescriptionTextLength": 10,
+      "LoadThreshold": 4
+    },
+    "MergedPullRequests": {
+      "IsEnabled": false,
+      "Days": 1,
       "LoadThreshold": 4
     },
     "AbandonedMonthsThreshold": 12,
@@ -73,7 +79,7 @@ Settings:
 - `Pdf.Enabled`: Enables/disables PDF report generation. Default: `true`.
 - `Pdf.OutputPath`: PDF file path (date suffix is added automatically).
 - `Html.Enabled`: Enables/disables HTML report generation. Default: `true`.
-- `Html.OutputPath`: HTML file path for the open PR details report (date suffix is added automatically).
+- `Html.OutputPath`: HTML file path for the PR details report (date suffix is added automatically).
 - `Html.OpenInBrowser`: Opens generated HTML report in the default browser after save. Default: `false`.
 - `LoadOpenPullRequestsStatistics`: Enables/disables loading open pull request statistics. Default: `true`.
 - `OpenPullRequestsLoadThreshold`: Max number of concurrent PR-statistics requests when enabled. Default: `4`.
@@ -82,6 +88,9 @@ Settings:
 - `PullRequestDetails.TtfrThresholdHours`: TTFR threshold in hours. When no first non-author response exists and open PR age exceeds this value, TTFR cell shows red `ALERT`. Default: `4`.
 - `PullRequestDetails.MinimalDescriptionTextLength`: Minimal PR description text length. In the description length column, values below this threshold are shown in red. Default: `1`.
 - `PullRequestDetails.LoadThreshold`: Max number of concurrent repository requests when loading open PR details report. Default: `8`.
+- `MergedPullRequests.IsEnabled`: Enables/disables the recently merged PRs table. Default: `false`.
+- `MergedPullRequests.Days`: Includes PRs merged during the last N days from report startup time. Default: `1`.
+- `MergedPullRequests.LoadThreshold`: Max number of concurrent repository requests when loading recently merged PRs. Default: `8`.
 - `AbandonedMonthsThreshold`: Inactivity threshold in months for abandoned repositories. Default: `12`.
 - `LoadAbandonedRepositoriesStatistics`: Enables/disables loading abandoned repositories summary by inactivity condition. Default: `true`.
 - `RepositorySearchMode`: Repository name search mode from configuration. Supported: `Contains`, `StartWith`. Default: `Contains`.
@@ -106,6 +115,7 @@ Cache location:
 The app renders:
 - Main repositories table with `Repository name`, `Created on`, `Last updated`, `Open pull requests`.
 - `Repositories with open pull requests` table (shown only when at least one repo has open PRs), ordered by `Created on` (oldest -> newest).
+- `Recently merged pull requests` table (shown only when `MergedPullRequests.IsEnabled` and matching merged PRs exist), placed after `Repositories with open pull requests`.
 - `Open PR details` table (shown only when `PullRequestDetails.IsEnabled` and open PRs exist).
 - `Abandoned repositories` table (shown only when `LoadAbandonedRepositoriesStatistics` is enabled and inactivity is above the configured threshold), including `Created on`, `Last activity on`, `Months inactive`.
 - `Bitbucket API request statistics` table (shown only when `Telemetry.Enabled` is enabled and at least one Bitbucket API request was sent). This section is printed only in the final console report.
