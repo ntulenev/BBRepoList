@@ -13,6 +13,8 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
 {
     private const string EMPTY_STATE_ROW_HTML =
         """            <tr><td class="empty" colspan="12">No open pull request details were collected for this run.</td></tr>""";
+    private const string EMPTY_MERGED_STATE_ROW_HTML =
+        """            <tr><td class="empty" colspan="12">No recently merged pull request details were collected for this run.</td></tr>""";
 
     /// <inheritdoc />
     public string Compose(RepositoryPdfReportData reportData)
@@ -29,10 +31,11 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         var approvalsTotal = rows.Sum(static detail => detail.ApprovalsCount);
 
         var rowsHtml = BuildRowsHtml(HtmlTemplateLoader.LoadPullRequestRowTemplate(), reportData);
+        var mergedSectionHtml = BuildMergedSectionHtml(reportData);
 
         return ApplyTemplate(
             HtmlTemplateLoader.LoadReportTemplate(),
-            new Dictionary<string, string>(11, StringComparer.Ordinal)
+            new Dictionary<string, string>(14, StringComparer.Ordinal)
             {
                 ["__WORKSPACE_TITLE__"] = HtmlPresentationHelpers.Encode(reportData.Workspace),
                 ["__GENERATED_AT__"] = HtmlPresentationHelpers.Encode(
@@ -46,7 +49,9 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 ["__COMMENTS_TOTAL__"] = commentsTotal.ToString(CultureInfo.InvariantCulture),
                 ["__REQUEST_CHANGES_TOTAL__"] = requestChangesTotal.ToString(CultureInfo.InvariantCulture),
                 ["__APPROVALS_TOTAL__"] = approvalsTotal.ToString(CultureInfo.InvariantCulture),
-                ["__ROWS__"] = rowsHtml
+                ["__MERGED_PR_COUNT__"] = reportData.MergedPullRequests.Count.ToString(CultureInfo.InvariantCulture),
+                ["__ROWS__"] = rowsHtml,
+                ["__MERGED_SECTION__"] = mergedSectionHtml
             });
     }
 
@@ -73,6 +78,88 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         }
 
         return html.ToString();
+    }
+
+    private static string BuildMergedRowsHtml(string rowTemplate, RepositoryPdfReportData reportData)
+    {
+        if (reportData.MergedPullRequests.Count == 0)
+        {
+            return EMPTY_MERGED_STATE_ROW_HTML;
+        }
+
+        var html = new StringBuilder(reportData.MergedPullRequests.Count * 512);
+
+        for (var i = 0; i < reportData.MergedPullRequests.Count; i++)
+        {
+            _ = html.Append(
+                BuildRowHtml(
+                    rowTemplate,
+                    reportData.Workspace,
+                    reportData.MergedPullRequests[i],
+                    i + 1,
+                    reportData.GeneratedAt,
+                    reportData.MinimalDescriptionTextLength));
+        }
+
+        return html.ToString();
+    }
+
+    private static string BuildMergedSectionHtml(RepositoryPdfReportData reportData)
+    {
+        if (!reportData.LoadMergedPullRequests)
+        {
+            return string.Empty;
+        }
+
+        var mergedRowsHtml = BuildMergedRowsHtml(HtmlTemplateLoader.LoadPullRequestRowTemplate(), reportData);
+        return ApplyTemplate(
+            """
+                <h2 class="section-title">Recently merged pull requests <span>last __MERGED_DAYS__ days</span></h2>
+                <section class="table-wrap">
+                  <div class="scroll">
+                    <table class="pr-table">
+                      <thead>
+                        <tr>
+                          <th><button class="th-button" data-sort-column="0" data-sort-type="number" type="button"><span>#</span><span class="sort-indicator"></span></button></th>
+                          <th class="repo-column"><button class="th-button" data-sort-column="1" data-sort-type="text" type="button"><span>Repository</span><span class="sort-indicator"></span></button></th>
+                          <th class="pr-column"><button class="th-button" data-sort-column="2" data-sort-type="number" type="button"><span>PR</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="3" data-sort-type="text" type="button"><span>🧑‍💻</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="4" data-sort-type="number" type="button"><span>Desc. len</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="5" data-sort-type="number" type="button"><span>Open for</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="6" data-sort-type="number" type="button"><span>TTFR</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="7" data-sort-type="number" type="button"><span>Merged</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="8" data-sort-type="number" type="button"><span>💬</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="9" data-sort-type="number" type="button"><span>RC</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="10" data-sort-type="number" type="button"><span>AP</span><span class="sort-indicator"></span></button></th>
+                          <th><button class="th-button" data-sort-column="11" data-sort-type="text" type="button"><span>Me</span><span class="sort-indicator"></span></button></th>
+                        </tr>
+                        <tr class="filters">
+                          <th><input class="filter-input" data-filter-column="0" type="search" placeholder="#"></th>
+                          <th class="repo-column"><input class="filter-input" data-filter-column="1" type="search" placeholder="Repository"></th>
+                          <th class="pr-column"><input class="filter-input" data-filter-column="2" type="search" placeholder="PR"></th>
+                          <th><input class="filter-input" data-filter-column="3" type="search" placeholder="🧑‍💻"></th>
+                          <th><input class="filter-input" data-filter-column="4" type="search" placeholder="Len"></th>
+                          <th><input class="filter-input" data-filter-column="5" type="search" placeholder="Open for"></th>
+                          <th><input class="filter-input" data-filter-column="6" type="search" placeholder="TTFR"></th>
+                          <th><input class="filter-input" data-filter-column="7" type="search" placeholder="Merged"></th>
+                          <th><input class="filter-input" data-filter-column="8" type="search" placeholder="💬"></th>
+                          <th><input class="filter-input" data-filter-column="9" type="search" placeholder="RC"></th>
+                          <th><input class="filter-input" data-filter-column="10" type="search" placeholder="AP"></th>
+                          <th><input class="filter-input" data-filter-column="11" type="search" placeholder="Me"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+            __MERGED_ROWS__
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+            """,
+            new Dictionary<string, string>(2, StringComparer.Ordinal)
+            {
+                ["__MERGED_DAYS__"] = reportData.MergedPullRequestsDays.ToString(CultureInfo.InvariantCulture),
+                ["__MERGED_ROWS__"] = mergedRowsHtml
+            });
     }
 
     private static string BuildRowHtml(
@@ -133,6 +220,62 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 ["__APPROVALS_BADGE__"] = BuildBadge(approvalsText, "ap"),
                 ["__MY_ACTIVITY_TEXT__"] = HtmlPresentationHelpers.Encode(myActivityText),
                 ["__MY_ACTIVITY_BADGE__"] = BuildActivityBadge(detail)
+            });
+    }
+
+    private static string BuildRowHtml(
+        string rowTemplate,
+        string workspace,
+        MergedPullRequest pullRequest,
+        int index,
+        DateTimeOffset generatedAt,
+        int minimalDescriptionTextLength)
+    {
+        ArgumentNullException.ThrowIfNull(rowTemplate);
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, pullRequest.RepositorySlug);
+        var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(workspace, pullRequest.RepositorySlug, pullRequest.PullRequestId);
+        var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
+        var isDescriptionShort = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength);
+        var openFor = pullRequest.GetOpenDuration();
+        var ttfr = pullRequest.TimeToFirstResponse;
+        var mergedAge = TimeSpan.FromTicks(Math.Max((generatedAt - pullRequest.MergedOn).Ticks, 0));
+        var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(pullRequest);
+        var requestChangesText = PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount);
+        var approvalsText = PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount);
+
+        return ApplyTemplate(
+            rowTemplate,
+            new Dictionary<string, string>(28, StringComparer.Ordinal)
+            {
+                ["__INDEX__"] = index.ToString(CultureInfo.InvariantCulture),
+                ["__REPOSITORY_NAME__"] = HtmlPresentationHelpers.Encode(pullRequest.RepositoryName),
+                ["__PULL_REQUEST_ID__"] = pullRequest.PullRequestId.ToString(CultureInfo.InvariantCulture),
+                ["__TITLE__"] = HtmlPresentationHelpers.Encode(pullRequest.Title),
+                ["__AUTHOR_DISPLAY_NAME_SORT__"] = HtmlPresentationHelpers.Encode(pullRequest.AuthorDisplayName ?? "-"),
+                ["__AUTHOR_DISPLAY_NAME_DISPLAY__"] = BuildCompactAuthorDisplayName(pullRequest.AuthorDisplayName),
+                ["__PULL_REQUEST_LINK__"] = BuildPullRequestLink(pullRequestUrl, pullRequest.PullRequestId, pullRequest.Title),
+                ["__REPOSITORY_LINK__"] = BuildLink(repositoryUrl, pullRequest.RepositoryName),
+                ["__DESCRIPTION_LENGTH__"] = descriptionLength.ToString(CultureInfo.InvariantCulture),
+                ["__DESCRIPTION_SHORT_CLASS__"] = isDescriptionShort ? " class=\"description-short\"" : string.Empty,
+                ["__OPEN_FOR_SORT__"] = ((long)openFor.TotalMinutes).ToString(CultureInfo.InvariantCulture),
+                ["__OPEN_FOR__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor)),
+                ["__TTFR_SORT__"] = (ttfr is null ? -1L : (long)ttfr.Value.TotalMinutes).ToString(CultureInfo.InvariantCulture),
+                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(ttfr is null ? "-" : HtmlPresentationHelpers.FormatDuration(ttfr.Value)),
+                ["__TTFR__"] = BuildTtfrCell(ttfr, overdueTtfr: false),
+                ["__LAST_ACTIVITY_SORT__"] = ((long)mergedAge.TotalMinutes).ToString(CultureInfo.InvariantCulture),
+                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(mergedAge)),
+                ["__COMMENTS_COUNT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                ["__COMMENTS_TEXT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                ["__REQUEST_CHANGES_COUNT__"] = pullRequest.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
+                ["__REQUEST_CHANGES_TEXT__"] = HtmlPresentationHelpers.Encode(requestChangesText),
+                ["__REQUEST_CHANGES_BADGE__"] = BuildBadge(requestChangesText, "rc"),
+                ["__APPROVALS_COUNT__"] = pullRequest.ApprovalsCount.ToString(CultureInfo.InvariantCulture),
+                ["__APPROVALS_TEXT__"] = HtmlPresentationHelpers.Encode(approvalsText),
+                ["__APPROVALS_BADGE__"] = BuildBadge(approvalsText, "ap"),
+                ["__MY_ACTIVITY_TEXT__"] = HtmlPresentationHelpers.Encode(myActivityText),
+                ["__MY_ACTIVITY_BADGE__"] = BuildActivityBadge(pullRequest)
             });
     }
 
@@ -216,6 +359,33 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         }
 
         if (detail.HasCurrentUserApproval)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Approval\">&#9989;</span>");
+        }
+
+        return $"<span class=\"badge activity\">{string.Join(" ", parts)}</span>";
+    }
+
+    private static string BuildActivityBadge(MergedPullRequest pullRequest)
+    {
+        if (!pullRequest.HasCurrentUserActivity)
+        {
+            return "-";
+        }
+
+        var parts = new List<string>(3);
+
+        if (pullRequest.HasCurrentUserDiscussion)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Comment\">&#128172;</span>");
+        }
+
+        if (pullRequest.HasCurrentUserRequestChanges)
+        {
+            parts.Add("<span class=\"activity-icon\" title=\"Request changes\">&#10060;</span>");
+        }
+
+        if (pullRequest.HasCurrentUserApproval)
         {
             parts.Add("<span class=\"activity-icon\" title=\"Approval\">&#9989;</span>");
         }

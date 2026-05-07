@@ -54,6 +54,7 @@ public sealed class ConsoleApp
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var executionTime = Stopwatch.StartNew();
+        var reportOpenedAt = DateTimeOffset.UtcNow;
         ShowTitle();
 
         var authenticatedUser = await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false);
@@ -74,14 +75,20 @@ public sealed class ConsoleApp
             sortedRepositories,
             authenticatedUser.Uuid,
             cancellationToken).ConfigureAwait(false);
+        var mergedPullRequests = await LoadMergedPullRequestsAsync(
+            sortedRepositories,
+            reportOpenedAt,
+            authenticatedUser.Uuid,
+            cancellationToken).ConfigureAwait(false);
 
         ShowResultsHeader(sortedRepositories.Count);
         RenderRepositoriesTable(sortedRepositories);
         RenderOpenPullRequestsTableIfAny(sortedRepositories);
+        RenderMergedPullRequestsTableIfAny(mergedPullRequests);
         RenderPullRequestDetailsReportIfAny(pullRequestDetails);
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
-        RenderHtmlReport(sortedRepositories, pullRequestDetails, filterPattern);
-        RenderPdfReport(sortedRepositories, pullRequestDetails, filterPattern);
+        RenderHtmlReport(sortedRepositories, mergedPullRequests, pullRequestDetails, filterPattern);
+        RenderPdfReport(sortedRepositories, mergedPullRequests, pullRequestDetails, filterPattern);
         RenderTelemetrySummary();
         executionTime.Stop();
         ShowDone(executionTime.Elapsed);
@@ -229,6 +236,44 @@ public sealed class ConsoleApp
         return pullRequestDetails;
     }
 
+    private async Task<IReadOnlyList<MergedPullRequest>> LoadMergedPullRequestsAsync(
+        List<Repository> repositories,
+        DateTimeOffset reportOpenedAt,
+        BitbucketId currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (!_options.MergedPullRequests.IsEnabled || repositories.Count == 0)
+        {
+            return [];
+        }
+
+        IReadOnlyList<MergedPullRequest> mergedPullRequests = [];
+        PullRequestDetailsLoadProgress? lastProgress = null;
+        var mergedSince = reportOpenedAt.AddDays(-_options.MergedPullRequests.Days);
+
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Star)
+            .SpinnerStyle(Style.Parse("green"))
+            .StartAsync("Loading recently merged PRs...", async ctx =>
+            {
+                var progress = new Progress<PullRequestDetailsLoadProgress>(p =>
+                {
+                    lastProgress = p;
+                    _ = ctx.Status($"Loading recently merged PRs... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
+                });
+
+                mergedPullRequests = await _repoService
+                    .GetMergedPullRequestsAsync(repositories, mergedSince, currentUserId, progress, cancellationToken)
+                    .ConfigureAwait(false);
+
+                _ = lastProgress is not null
+                    ? ctx.Status($"Loaded recently merged PRs for {lastProgress.TotalRepositories} repositories.")
+                    : ctx.Status("Loaded recently merged PRs.");
+            }).ConfigureAwait(false);
+
+        return mergedPullRequests;
+    }
+
     private void ShowResultsHeader(int resultCount)
     {
         AnsiConsole.MarkupLine($"\n[bold]Workspace:[/] [green]{Markup.Escape(_options.Workspace)}[/]");
@@ -298,6 +343,80 @@ public sealed class ConsoleApp
                 Markup.Escape(repository.Name),
                 Markup.Escape(createdOn),
                 Markup.Escape(openPullRequests));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private void RenderMergedPullRequestsTableIfAny(IReadOnlyList<MergedPullRequest> mergedPullRequests)
+    {
+        if (!_options.MergedPullRequests.IsEnabled || mergedPullRequests.Count == 0)
+        {
+            return;
+        }
+
+        AnsiConsole.MarkupLine(
+            $"\n[bold]Recently merged pull requests[/] [grey](last {_options.MergedPullRequests.Days} days)[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Double)
+            .Expand()
+            .AddColumn(new TableColumn("[green]#[/]").Centered())
+            .AddColumn(new TableColumn("[green]Repository[/]"))
+            .AddColumn(new TableColumn("[green]PR[/]").Width(28))
+            .AddColumn(new TableColumn("[green]🧑‍💻[/]"))
+            .AddColumn(new TableColumn("[green]Description len[/]"))
+            .AddColumn(new TableColumn("[green]Opened on[/]"))
+            .AddColumn(new TableColumn("[green]Open for[/]"))
+            .AddColumn(new TableColumn("[green]TTFR[/]"))
+            .AddColumn(new TableColumn("[green]Merged[/]"))
+            .AddColumn(new TableColumn("[green]Merged on[/]"))
+            .AddColumn(new TableColumn("[green]💬[/]"))
+            .AddColumn(new TableColumn("[green]RC[/]"))
+            .AddColumn(new TableColumn("[green]AP[/]"))
+            .AddColumn(new TableColumn("[green]Me[/]"));
+
+        var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
+        var asOf = DateTimeOffset.UtcNow;
+
+        for (var i = 0; i < mergedPullRequests.Count; i++)
+        {
+            var pullRequest = mergedPullRequests[i];
+            var pullRequestText = Markup.Escape(
+                $"#{pullRequest.PullRequestId.ToString(CultureInfo.InvariantCulture)}\n{pullRequest.Title}");
+            var authorCell = Markup.Escape(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(pullRequest.AuthorDisplayName)));
+            var openedOn = pullRequest.OpenedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+            var mergedOn = pullRequest.MergedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+            var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
+            var descriptionLengthCell = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength)
+                ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
+                : descriptionLength.ToString(CultureInfo.InvariantCulture);
+            var openFor = FormatDuration(pullRequest.GetOpenDuration());
+            var ttfr = pullRequest.TimeToFirstResponse;
+            var ttfrCell = ttfr is null ? "-" : Markup.Escape(FormatDuration(ttfr.Value));
+            var mergedAge = TimeSpan.FromTicks(Math.Max((asOf - pullRequest.MergedOn).Ticks, 0));
+            var mergedAgeCell = Markup.Escape(FormatDuration(mergedAge));
+            var requestChangesText = Markup.Escape(
+                PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount));
+            var approvalsText = Markup.Escape(
+                PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount));
+            var myActivityText = GetMyActivityMarkup(pullRequest);
+
+            _ = table.AddRow(
+                (i + 1).ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(pullRequest.RepositoryName),
+                pullRequestText,
+                authorCell,
+                descriptionLengthCell,
+                Markup.Escape(openedOn),
+                Markup.Escape(openFor),
+                ttfrCell,
+                mergedAgeCell,
+                Markup.Escape(mergedOn),
+                pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                requestChangesText,
+                approvalsText,
+                myActivityText);
         }
 
         AnsiConsole.Write(table);
@@ -433,6 +552,7 @@ public sealed class ConsoleApp
 
     private void RenderPdfReport(
         List<Repository> repositories,
+        IReadOnlyList<MergedPullRequest> mergedPullRequests,
         IReadOnlyList<PullRequestDetail> pullRequestDetails,
         FilterPattern filterPattern)
     {
@@ -443,8 +563,11 @@ public sealed class ConsoleApp
             _options.LoadAbandonedRepositoriesStatistics,
             _options.PullRequestDetails.TtfrThresholdHours,
             _options.PullRequestDetails.MinimalDescriptionTextLength,
+            _options.MergedPullRequests.IsEnabled,
+            _options.MergedPullRequests.Days,
             DateTimeOffset.Now,
             repositories,
+            mergedPullRequests,
             pullRequestDetails);
 
         _pdfReportRenderer.RenderReport(reportData);
@@ -452,6 +575,7 @@ public sealed class ConsoleApp
 
     private void RenderHtmlReport(
         List<Repository> repositories,
+        IReadOnlyList<MergedPullRequest> mergedPullRequests,
         IReadOnlyList<PullRequestDetail> pullRequestDetails,
         FilterPattern filterPattern)
     {
@@ -462,8 +586,11 @@ public sealed class ConsoleApp
             _options.LoadAbandonedRepositoriesStatistics,
             _options.PullRequestDetails.TtfrThresholdHours,
             _options.PullRequestDetails.MinimalDescriptionTextLength,
+            _options.MergedPullRequests.IsEnabled,
+            _options.MergedPullRequests.Days,
             DateTimeOffset.Now,
             repositories,
+            mergedPullRequests,
             pullRequestDetails);
 
         _htmlReportRenderer.RenderReport(reportData);
@@ -553,6 +680,33 @@ public sealed class ConsoleApp
         if (detail.HasCurrentUserApproval)
         {
             parts.Add("[green]✅[/]");
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string GetMyActivityMarkup(MergedPullRequest pullRequest)
+    {
+        if (!pullRequest.HasCurrentUserActivity)
+        {
+            return "-";
+        }
+
+        var parts = new List<string>(3);
+
+        if (pullRequest.HasCurrentUserDiscussion)
+        {
+            parts.Add("[yellow]💬[/]");
+        }
+
+        if (pullRequest.HasCurrentUserRequestChanges)
+        {
+            parts.Add("[red]âŒ[/]");
+        }
+
+        if (pullRequest.HasCurrentUserApproval)
+        {
+            parts.Add("[green]âœ…[/]");
         }
 
         return string.Join(" ", parts);

@@ -19,7 +19,10 @@ public sealed class HtmlContentComposerTests
             true,
             4,
             10,
+            false,
+            1,
             new DateTimeOffset(2026, 3, 13, 10, 30, 0, TimeSpan.Zero),
+            [],
             [],
             []);
 
@@ -27,7 +30,9 @@ public sealed class HtmlContentComposerTests
 
         html.Should().Contain("<title>Open PR Details - workspace</title>");
         html.Should().Contain("No open pull request details were collected for this run.");
+        html.Should().NotContain("Recently merged pull requests");
         html.Should().NotContain("__ROWS__");
+        html.Should().NotContain("__MERGED_SECTION__");
         html.Should().NotContain("__WORKSPACE_TITLE__");
     }
 
@@ -60,8 +65,11 @@ public sealed class HtmlContentComposerTests
             true,
             4,
             10,
+            false,
+            1,
             new DateTimeOffset(2026, 3, 13, 10, 30, 0, TimeSpan.Zero),
             [repository],
+            [],
             [detail]);
 
         var html = composer.Compose(reportData);
@@ -81,5 +89,55 @@ public sealed class HtmlContentComposerTests
         html.Should().Contain("&#10060;");
         html.Should().Contain("&#9989;");
         html.Should().NotContain("__PULL_REQUEST_ID__");
+    }
+
+    [Fact(DisplayName = "Compose renders recently merged pull request section when enabled")]
+    [Trait("Category", "Unit")]
+    public void ComposeWhenMergedPullRequestsAreEnabledRendersMergedSection()
+    {
+        var composer = new HtmlContentComposer();
+        var repository = new Repository("Repo <Two>", new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), null, "repo-two");
+        var mergedPullRequest = new MergedPullRequest(
+            repository,
+            202,
+            "Merge <feature>",
+            new DateTimeOffset(2026, 3, 12, 8, 0, 0, TimeSpan.Zero),
+            authorId: null,
+            authorDisplayName: "Merge Author",
+            firstNonAuthorActivityOn: new DateTimeOffset(2026, 3, 12, 9, 0, 0, TimeSpan.Zero),
+            lastActivityOn: new DateTimeOffset(2026, 3, 13, 9, 30, 0, TimeSpan.Zero),
+            hasCurrentUserDiscussion: true,
+            mergedOn: new DateTimeOffset(2026, 3, 13, 9, 45, 0, TimeSpan.Zero),
+            descriptionText: "Merged description",
+            commentsCount: 3,
+            requestChangesCount: 1,
+            hasCurrentUserRequestChanges: true,
+            approvalsCount: 2,
+            hasCurrentUserApproval: true);
+        var reportData = new RepositoryPdfReportData(
+            "workspace",
+            null,
+            12,
+            true,
+            4,
+            10,
+            true,
+            2,
+            new DateTimeOffset(2026, 3, 13, 10, 30, 0, TimeSpan.Zero),
+            [repository],
+            [mergedPullRequest],
+            []);
+
+        var html = composer.Compose(reportData);
+
+        html.Should().Contain("Recently merged pull requests");
+        html.Should().Contain("last 2 days");
+        html.Should().Contain("Merge &lt;feature&gt;");
+        html.Should().Contain("Merge<br />Author");
+        html.Should().Contain("RC (1)");
+        html.Should().Contain("AP (2)");
+        html.Should().Contain("https://bitbucket.org/workspace/repo-two/pull-requests/202");
+        html.Should().NotContain("__MERGED_ROWS__");
+        html.Should().NotContain("__MERGED_SECTION__");
     }
 }

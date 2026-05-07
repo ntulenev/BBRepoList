@@ -29,6 +29,8 @@ public sealed class RepositoryService : IRepoService
         _openPullRequestsLoadThreshold = options.Value.OpenPullRequestsLoadThreshold;
         _loadPullRequestDetails = options.Value.PullRequestDetails.IsEnabled;
         _pullRequestDetailsLoadThreshold = options.Value.PullRequestDetails.LoadThreshold;
+        _loadMergedPullRequests = options.Value.MergedPullRequests.IsEnabled;
+        _mergedPullRequestsLoadThreshold = options.Value.MergedPullRequests.LoadThreshold;
     }
 
     /// <inheritdoc />
@@ -167,11 +169,82 @@ public sealed class RepositoryService : IRepoService
         ];
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MergedPullRequest>> GetMergedPullRequestsAsync(
+        IReadOnlyList<Repository> repositories,
+        DateTimeOffset mergedSince,
+        BitbucketId currentUserId,
+        IProgress<PullRequestDetailsLoadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repositories);
+
+        if (!_loadMergedPullRequests || repositories.Count == 0)
+        {
+            return [];
+        }
+
+        var repositoriesToInspect = repositories
+            .Where(static repository => repository.CanLoadOpenPullRequestDetails)
+            .ToList();
+
+        if (repositoriesToInspect.Count == 0)
+        {
+            return [];
+        }
+
+        var pullRequestsByRepository = new IReadOnlyList<MergedPullRequest>?[repositoriesToInspect.Count];
+        var loadedRepositories = 0;
+
+        progress?.Report(new PullRequestDetailsLoadProgress(0, repositoriesToInspect.Count));
+
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, repositoriesToInspect.Count),
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = _mergedPullRequestsLoadThreshold,
+                CancellationToken = cancellationToken
+            },
+            async (index, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+
+                var repository = repositoriesToInspect[index];
+                var pullRequests = await _prApi
+                    .GetMergedPullRequestsAsync(repository, mergedSince, currentUserId, token)
+                    .ConfigureAwait(false);
+
+                pullRequestsByRepository[index] = pullRequests;
+
+                var currentLoaded = Interlocked.Increment(ref loadedRepositories);
+                progress?.Report(new PullRequestDetailsLoadProgress(currentLoaded, repositoriesToInspect.Count));
+            }).ConfigureAwait(false);
+
+        var mergedPullRequests = new List<MergedPullRequest>();
+        for (var index = 0; index < pullRequestsByRepository.Length; index++)
+        {
+            if (pullRequestsByRepository[index] is { } pullRequests)
+            {
+                mergedPullRequests.AddRange(pullRequests);
+            }
+        }
+
+        return
+        [
+            .. mergedPullRequests
+                .OrderByDescending(static pullRequest => pullRequest.MergedOn)
+                .ThenBy(static pullRequest => pullRequest.RepositoryName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static pullRequest => pullRequest.PullRequestId)
+        ];
+    }
+
     private readonly IBitbucketRepoApiClient _api;
     private readonly IBitbucketPRApiClient _prApi;
     private readonly bool _loadOpenPullRequestsStatistics;
     private readonly int _openPullRequestsLoadThreshold;
     private readonly bool _loadPullRequestDetails;
     private readonly int _pullRequestDetailsLoadThreshold;
+    private readonly bool _loadMergedPullRequests;
+    private readonly int _mergedPullRequestsLoadThreshold;
 }
 

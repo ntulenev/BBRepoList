@@ -138,6 +138,20 @@
       border-radius: 14px;
       overflow: hidden;
       box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      margin: 12px 0 6px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.8rem;
     }
 
     .scroll {
@@ -331,6 +345,10 @@
           <span class="summary-value">__OPEN_PR_COUNT__</span>
         </div>
         <div class="summary-card">
+          <span class="summary-label">Merged PRs</span>
+          <span class="summary-value">__MERGED_PR_COUNT__</span>
+        </div>
+        <div class="summary-card">
           <span class="summary-label">TTFR Alerts</span>
           <span class="summary-value">__TTFR_ALERTS__</span>
         </div>
@@ -357,9 +375,10 @@
       </div>
     </div>
 
+    <h2 class="section-title">Open PR details</h2>
     <section class="table-wrap">
       <div class="scroll">
-        <table id="prTable">
+        <table class="pr-table">
           <thead>
             <tr>
               <th><button class="th-button" data-sort-column="0" data-sort-type="number" type="button"><span>#</span><span class="sort-indicator"></span></button></th>
@@ -396,19 +415,24 @@ __ROWS__
         </table>
       </div>
     </section>
+
+__MERGED_SECTION__
   </div>
 
   <script>
     (() => {
-      const table = document.getElementById('prTable');
-      const tbody = table.querySelector('tbody');
-      const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('.empty'));
-      const filters = Array.from(document.querySelectorAll('.filter-input'));
+      const tables = Array.from(document.querySelectorAll('.pr-table'));
       const globalSearch = document.getElementById('globalSearch');
       const resetButton = document.getElementById('resetFilters');
       const toggleCompactButton = document.getElementById('toggleCompact');
-      const sortButtons = Array.from(document.querySelectorAll('[data-sort-column]'));
-      const sortState = { column: null, direction: 'asc' };
+      const tableStates = tables.map(table => ({
+        table,
+        tbody: table.querySelector('tbody'),
+        rows: Array.from(table.querySelectorAll('tbody tr')).filter(row => !row.querySelector('.empty')),
+        filters: Array.from(table.querySelectorAll('.filter-input')),
+        sortButtons: Array.from(table.querySelectorAll('[data-sort-column]')),
+        sortState: { column: 4, direction: 'desc' }
+      }));
 
       function compareValues(left, right, type, direction) {
         if (type === 'number') {
@@ -426,11 +450,11 @@ __ROWS__
           : rightText.localeCompare(leftText);
       }
 
-      function applyFilters() {
+      function applyFilters(state) {
         const globalTerm = globalSearch.value.trim().toLowerCase();
-        const columnTerms = new Map(filters.map(filter => [Number(filter.dataset.filterColumn), filter.value.trim().toLowerCase()]));
+        const columnTerms = new Map(state.filters.map(filter => [Number(filter.dataset.filterColumn), filter.value.trim().toLowerCase()]));
 
-        for (const row of rows) {
+        for (const row of state.rows) {
           const cells = Array.from(row.children);
           const globalMatch = !globalTerm || cells.some(cell => (cell.dataset.filter || cell.textContent || '').toLowerCase().includes(globalTerm));
           const columnsMatch = cells.every((cell, index) => {
@@ -442,44 +466,63 @@ __ROWS__
         }
       }
 
-      function applySort() {
-        if (sortState.column === null) {
+      function applySort(state) {
+        if (state.sortState.column === null) {
           return;
         }
 
-        const button = sortButtons.find(item => Number(item.dataset.sortColumn) === sortState.column);
+        const button = state.sortButtons.find(item => Number(item.dataset.sortColumn) === state.sortState.column);
         const type = button?.dataset.sortType || 'text';
-        const sorted = [...rows].sort((leftRow, rightRow) => {
-          const leftCell = leftRow.children[sortState.column];
-          const rightCell = rightRow.children[sortState.column];
-          return compareValues(leftCell.dataset.sort || leftCell.textContent, rightCell.dataset.sort || rightCell.textContent, type, sortState.direction);
+        const sorted = [...state.rows].sort((leftRow, rightRow) => {
+          const leftCell = leftRow.children[state.sortState.column];
+          const rightCell = rightRow.children[state.sortState.column];
+          return compareValues(leftCell.dataset.sort || leftCell.textContent, rightCell.dataset.sort || rightCell.textContent, type, state.sortState.direction);
         });
 
         for (const row of sorted) {
-          tbody.appendChild(row);
+          state.tbody.appendChild(row);
         }
       }
 
-      function updateSortIndicators() {
-        for (const button of sortButtons) {
+      function updateSortIndicators(state) {
+        for (const button of state.sortButtons) {
           const indicator = button.querySelector('.sort-indicator');
           const column = Number(button.dataset.sortColumn);
-          indicator.textContent = sortState.column === column ? (sortState.direction === 'asc' ? '\u25B2' : '\u25BC') : '';
+          indicator.textContent = state.sortState.column === column ? (state.sortState.direction === 'asc' ? '\u25B2' : '\u25BC') : '';
         }
       }
 
-      for (const filter of filters) {
-        filter.addEventListener('input', applyFilters);
+      function applyAllFilters() {
+        for (const state of tableStates) {
+          applyFilters(state);
+        }
       }
 
-      globalSearch.addEventListener('input', applyFilters);
+      for (const state of tableStates) {
+        for (const filter of state.filters) {
+          filter.addEventListener('input', () => applyFilters(state));
+        }
+
+        for (const button of state.sortButtons) {
+          button.addEventListener('click', () => {
+            const nextColumn = Number(button.dataset.sortColumn);
+            state.sortState.direction = state.sortState.column === nextColumn && state.sortState.direction === 'asc' ? 'desc' : 'asc';
+            state.sortState.column = nextColumn;
+            applySort(state);
+            updateSortIndicators(state);
+            applyFilters(state);
+          });
+        }
+      }
+
+      globalSearch.addEventListener('input', applyAllFilters);
       resetButton.addEventListener('click', () => {
         globalSearch.value = '';
-        for (const filter of filters) {
+        for (const filter of document.querySelectorAll('.filter-input')) {
           filter.value = '';
         }
 
-        applyFilters();
+        applyAllFilters();
       });
 
       toggleCompactButton.addEventListener('click', () => {
@@ -488,22 +531,11 @@ __ROWS__
         toggleCompactButton.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
       });
 
-      for (const button of sortButtons) {
-        button.addEventListener('click', () => {
-          const nextColumn = Number(button.dataset.sortColumn);
-          sortState.direction = sortState.column === nextColumn && sortState.direction === 'asc' ? 'desc' : 'asc';
-          sortState.column = nextColumn;
-          applySort();
-          updateSortIndicators();
-          applyFilters();
-        });
+      for (const state of tableStates) {
+        applySort(state);
+        updateSortIndicators(state);
+        applyFilters(state);
       }
-
-      sortState.column = 4;
-      sortState.direction = 'desc';
-      applySort();
-      updateSortIndicators();
-      applyFilters();
     })();
   </script>
 </body>

@@ -485,6 +485,88 @@ public sealed class ConsoleAppTests
         output.Should().Contain("✅");
     }
 
+    [Fact(DisplayName = "RunAsync renders recently merged pull requests table when enabled")]
+    [Trait("Category", "Unit")]
+    public async Task RunAsyncWhenMergedPullRequestsAreEnabledRendersMergedPullRequestsAfterOpenPullRequests()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repoCreatedOn = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var prOpenedOn = new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero);
+        var prMergedOn = new DateTimeOffset(2026, 2, 24, 12, 0, 0, TimeSpan.Zero);
+
+        var api = new Mock<IBitbucketAuthApiClient>(MockBehavior.Strict);
+        api.Setup(a => a.AuthSelfCheckAsync(cts.Token))
+            .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
+
+        var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.MergedPullRequests.Count == 1
+            && data.MergedPullRequestsDays == 2
+            && data.PullRequestDetails.Count == 0)));
+
+        var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+            data.Workspace == "workspace"
+            && data.FilterPhrase == "Repo"
+            && data.Repositories.Count == 1
+            && data.MergedPullRequests.Count == 1
+            && data.MergedPullRequestsDays == 2
+            && data.PullRequestDetails.Count == 0)));
+
+        var repo = CreateRepositoryWithOpenPullRequestsCount("Repo-1", repoCreatedOn, repoCreatedOn.AddYears(2), 1, "repo-1");
+        var repoService = new Mock<IRepoService>(MockBehavior.Strict);
+        repoService.Setup(s => s.GetRepositoriesAsync(
+                new FilterPattern("Repo"),
+                It.Is<IProgress<RepoLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<RepoLoadProgress>)),
+                cts.Token))
+            .ReturnsAsync([repo]);
+        repoService.Setup(s => s.GetMergedPullRequestsAsync(
+                It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
+                It.Is<DateTimeOffset>(mergedSince => mergedSince <= DateTimeOffset.UtcNow.AddDays(-2)),
+                new BitbucketId("{uuid}"),
+                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                cts.Token))
+            .ReturnsAsync(
+            [
+                new MergedPullRequest(
+                    repo,
+                    101,
+                    "Merged feature",
+                    prOpenedOn,
+                    new BitbucketId("{author}"),
+                    "Author One",
+                    prOpenedOn.AddHours(1),
+                    prOpenedOn.AddHours(2),
+                    true,
+                    prMergedOn,
+                    "Author One")
+            ]);
+
+        var options = Options.Create(CreateOptions(mergedPullRequestsEnabled: true, mergedPullRequestsDays: 2));
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+
+        var output = await RunWithTestConsoleAsync(async console =>
+        {
+            console.Input.PushTextWithEnter("Repo");
+
+            // Act
+            await app.RunAsync(cts.Token);
+        });
+
+        // Assert
+        output.Should().Contain("Repositories with open pull requests");
+        output.Should().Contain("Recently merged pull requests");
+        output.Should().Contain("last 2 days");
+        output.Should().Contain("Mer");
+        output.IndexOf("Repositories with open pull requests", StringComparison.Ordinal)
+            .Should()
+            .BeLessThan(output.IndexOf("Recently merged pull requests", StringComparison.Ordinal));
+    }
+
     [Fact(DisplayName = "RunAsync shows TTFR alert when first non-author response is missing over threshold")]
     [Trait("Category", "Unit")]
     public async Task RunAsyncWhenTtfrIsMissingOverThresholdShowsAlert()
@@ -886,7 +968,9 @@ public sealed class ConsoleAppTests
         int minimalDescriptionTextLength = 1,
         RepositorySearchMode repositorySearchMode = RepositorySearchMode.Contains,
         string? repositorySearchPhrase = null,
-        bool telemetryEnabled = false)
+        bool telemetryEnabled = false,
+        bool mergedPullRequestsEnabled = false,
+        int mergedPullRequestsDays = 1)
     {
         return new BitbucketOptions
         {
@@ -911,6 +995,11 @@ public sealed class ConsoleAppTests
                 IsEnabled = prDetailsEnabled,
                 TtfrThresholdHours = ttfrThresholdHours,
                 MinimalDescriptionTextLength = minimalDescriptionTextLength
+            },
+            MergedPullRequests = new MergedPullRequestsOptions
+            {
+                IsEnabled = mergedPullRequestsEnabled,
+                Days = mergedPullRequestsDays
             },
             Telemetry = new BitbucketTelemetryOptions
             {

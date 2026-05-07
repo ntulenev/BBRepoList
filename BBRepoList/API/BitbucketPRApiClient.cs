@@ -153,6 +153,87 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return details;
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MergedPullRequest>> GetMergedPullRequestsAsync(
+        Repository repository,
+        DateTimeOffset mergedSince,
+        BitbucketId currentUserId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        if (!repository.CanLoadOpenPullRequestDetails)
+        {
+            return [];
+        }
+
+        var repositorySlug = repository.Slug!;
+        var pullRequests = new List<MergedPullRequest>();
+
+        try
+        {
+            var escapedSlug = Uri.EscapeDataString(repositorySlug);
+            var fields = Uri.EscapeDataString(
+                "values.id," +
+                "values.title," +
+                "values.created_on," +
+                "values.updated_on," +
+                "values.description," +
+                "values.summary.raw," +
+                "values.author.uuid," +
+                "values.author.display_name," +
+                "values.participants.user.uuid," +
+                "values.participants.state," +
+                "values.participants.approved," +
+                "next");
+            var url = new Uri(
+                $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=MERGED&pagelen={_options.PageLen}&sort=-updated_on&fields={fields}",
+                UriKind.Relative);
+
+            while (url is not null)
+            {
+                var page = await _transport.GetAsync<PullRequestPageDto>(url, cancellationToken).ConfigureAwait(false);
+                if (page is null)
+                {
+                    break;
+                }
+
+                foreach (var pullRequestDto in page.Values ?? [])
+                {
+                    if (pullRequestDto.Id is null
+                        || pullRequestDto.Id <= 0
+                        || pullRequestDto.CreatedOn is null
+                        || pullRequestDto.UpdatedOn is null)
+                    {
+                        continue;
+                    }
+
+                    if (pullRequestDto.UpdatedOn.Value < mergedSince)
+                    {
+                        return pullRequests;
+                    }
+
+                    var pullRequest = CreateOpenPullRequest(pullRequestDto, currentUserId);
+                    var activities = await GetPullRequestActivitiesAsync(
+                        repositorySlug,
+                        pullRequest.Id,
+                        cancellationToken).ConfigureAwait(false);
+                    var activitySummary = CreateActivitySummary(activities, pullRequest, currentUserId);
+
+                    pullRequests.Add(CreateMergedPullRequest(repository, pullRequest, pullRequestDto.UpdatedOn.Value, activitySummary));
+                }
+
+                url = page.Next;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+
+        return pullRequests;
+    }
+
     private async Task<IReadOnlyList<OpenPullRequest>> GetOpenPullRequestsAsync(
         string repositorySlug,
         BitbucketId currentUserId,
@@ -197,35 +278,40 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
-                var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
-                    ? parsedAuthorId
-                    : (BitbucketId?)null;
-                var descriptionText = string.IsNullOrWhiteSpace(pullRequestDto.Description)
-                    ? pullRequestDto.Summary?.Raw
-                    : pullRequestDto.Description;
-                var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
-                    GetPullRequestReviewState(pullRequestDto.Participants, currentUserId);
-
-                pullRequests.Add(new OpenPullRequest(
-                    pullRequestDto.Id.Value,
-                    string.IsNullOrWhiteSpace(pullRequestDto.Title)
-                        ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
-                        : pullRequestDto.Title.Trim(),
-                    pullRequestDto.CreatedOn.Value,
-                    descriptionText,
-                    authorId,
-                    pullRequestDto.Author?.DisplayName,
-                    requestChangesCount,
-                    hasCurrentUserRequestChanges,
-                    approvalsCount,
-                    hasCurrentUserApproval,
-                    BuildPullRequestFingerprint(pullRequestDto)));
+                pullRequests.Add(CreateOpenPullRequest(pullRequestDto, currentUserId));
             }
 
             url = page.Next;
         }
 
         return pullRequests;
+    }
+
+    private OpenPullRequest CreateOpenPullRequest(PullRequestDto pullRequestDto, BitbucketId currentUserId)
+    {
+        var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
+            ? parsedAuthorId
+            : (BitbucketId?)null;
+        var descriptionText = string.IsNullOrWhiteSpace(pullRequestDto.Description)
+            ? pullRequestDto.Summary?.Raw
+            : pullRequestDto.Description;
+        var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
+            GetPullRequestReviewState(pullRequestDto.Participants, currentUserId);
+
+        return new OpenPullRequest(
+            pullRequestDto.Id!.Value,
+            string.IsNullOrWhiteSpace(pullRequestDto.Title)
+                ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
+                : pullRequestDto.Title.Trim(),
+            pullRequestDto.CreatedOn!.Value,
+            descriptionText,
+            authorId,
+            pullRequestDto.Author?.DisplayName,
+            requestChangesCount,
+            hasCurrentUserRequestChanges,
+            approvalsCount,
+            hasCurrentUserApproval,
+            BuildPullRequestFingerprint(pullRequestDto));
     }
 
     private async Task<IReadOnlyList<PullRequestActivityEntry>> GetPullRequestActivitiesAsync(
@@ -362,6 +448,29 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
             activitySummary.FirstNonAuthorActivityOn,
             activitySummary.LastActivityOn,
             activitySummary.HasCurrentUserDiscussion,
+            pullRequest.DescriptionText,
+            activitySummary.CommentsCount,
+            pullRequest.RequestChangesCount,
+            pullRequest.HasCurrentUserRequestChanges,
+            pullRequest.ApprovalsCount,
+            pullRequest.HasCurrentUserApproval);
+
+    private static MergedPullRequest CreateMergedPullRequest(
+        Repository repository,
+        OpenPullRequest pullRequest,
+        DateTimeOffset mergedOn,
+        PullRequestActivitySummary activitySummary) =>
+        new(
+            repository,
+            pullRequest.Id,
+            pullRequest.Title,
+            pullRequest.CreatedOn,
+            pullRequest.AuthorId,
+            pullRequest.AuthorDisplayName,
+            activitySummary.FirstNonAuthorActivityOn,
+            activitySummary.LastActivityOn,
+            activitySummary.HasCurrentUserDiscussion,
+            mergedOn,
             pullRequest.DescriptionText,
             activitySummary.CommentsCount,
             pullRequest.RequestChangesCount,

@@ -24,6 +24,12 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
         ComposeRepositoriesSection(column, reportData.Repositories, reportData.Workspace);
         ComposeOpenPullRequestsSection(column, reportData.Repositories, reportData.Workspace);
+        ComposeMergedPullRequestsSection(
+            column,
+            reportData.MergedPullRequests,
+            reportData.Workspace,
+            reportData.MergedPullRequestsDays,
+            reportData.MinimalDescriptionTextLength);
         ComposePullRequestDetailsSection(
             column,
             reportData.PullRequestDetails,
@@ -164,6 +170,131 @@ public sealed class PdfContentComposer : IPdfContentComposer
                         .Hyperlink(pullRequestsUrl)
                         .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
                         .Text(openPrs);
+            }
+        });
+    }
+
+    private static void ComposeMergedPullRequestsSection(
+        ColumnDescriptor column,
+        IReadOnlyList<MergedPullRequest> mergedPullRequests,
+        string workspace,
+        int mergedPullRequestsDays,
+        int minimalDescriptionTextLength)
+    {
+        if (mergedPullRequests.Count == 0)
+        {
+            return;
+        }
+
+        _ = column.Item()
+            .Text($"Recently merged pull requests (last {mergedPullRequestsDays} days)")
+            .Bold()
+            .FontSize(12);
+
+        column.Item().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(26);
+                columns.RelativeColumn(2f);
+                columns.RelativeColumn(1.6f);
+                columns.RelativeColumn(1.2f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(1.2f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(1.2f);
+                columns.RelativeColumn(0.8f);
+                columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(1f);
+                columns.RelativeColumn(1f);
+            });
+
+            table.Header(header =>
+            {
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("#");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Repository");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("PR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("🧑‍💻");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Description len");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Merged");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Merged on");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("💬");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
+                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Me");
+            });
+
+            for (var i = 0; i < mergedPullRequests.Count; i++)
+            {
+                var pullRequest = mergedPullRequests[i];
+                var openedOn = pullRequest.OpenedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+                var mergedOn = pullRequest.MergedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+                var pullRequestNumberText = "#" + pullRequest.PullRequestId.ToString(CultureInfo.InvariantCulture);
+                var openFor = FormatDuration(pullRequest.GetOpenDuration());
+                var ttfrText = pullRequest.TimeToFirstResponse is null
+                    ? "-"
+                    : FormatDuration(pullRequest.TimeToFirstResponse.Value);
+                var mergedAge = TimeSpan.FromTicks(Math.Max((DateTimeOffset.UtcNow - pullRequest.MergedOn).Ticks, 0));
+                var mergedAgeText = FormatDuration(mergedAge);
+                var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
+                var isDescriptionShort = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength);
+                var descriptionLengthText = descriptionLength.ToString(CultureInfo.InvariantCulture);
+                var requestChangesText = PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount);
+                var approvalsText = PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount);
+                var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, pullRequest.RepositorySlug);
+                var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
+                    workspace,
+                    pullRequest.RepositorySlug,
+                    pullRequest.PullRequestId);
+
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
+                _ = string.IsNullOrWhiteSpace(repositoryUrl)
+                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(pullRequest.RepositoryName)
+                    : table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .Hyperlink(repositoryUrl)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
+                        .Text(pullRequest.RepositoryName);
+
+                ComposePullRequestCell(
+                    table.Cell().Element(PdfPresentationHelpers.StyleBodyCell),
+                    pullRequestUrl,
+                    pullRequestNumberText,
+                    pullRequest.Title);
+
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
+                    .Text(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(pullRequest.AuthorDisplayName)));
+                _ = isDescriptionShort
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
+                        .Text(descriptionLengthText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(descriptionLengthText);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openedOn);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(openFor);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(ttfrText);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(mergedAgeText);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(mergedOn);
+                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
+                    .Text(pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture));
+                _ = pullRequest.RequestChangesCount > 0
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Orange.Darken2))
+                        .Text(requestChangesText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(requestChangesText);
+                _ = pullRequest.ApprovalsCount > 0
+                    ? table.Cell()
+                        .Element(PdfPresentationHelpers.StyleBodyCell)
+                        .DefaultTextStyle(static style => style.FontColor(Colors.Green.Darken2))
+                        .Text(approvalsText)
+                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(approvalsText);
+                ComposeMyActivityCell(table.Cell().Element(PdfPresentationHelpers.StyleBodyCell), pullRequest);
             }
         });
     }
@@ -459,6 +590,47 @@ public sealed class PdfContentComposer : IPdfContentComposer
             }
 
             if (detail.HasCurrentUserApproval)
+            {
+                if (needsSeparator)
+                {
+                    _ = text.Span(" ");
+                }
+
+                _ = text.Span("\u2705").FontColor(Colors.Green.Darken2);
+            }
+        });
+    }
+
+    private static void ComposeMyActivityCell(IContainer container, MergedPullRequest pullRequest)
+    {
+        if (!pullRequest.HasCurrentUserActivity)
+        {
+            _ = container.Text("-");
+            return;
+        }
+
+        container.Text(text =>
+        {
+            var needsSeparator = false;
+
+            if (pullRequest.HasCurrentUserDiscussion)
+            {
+                _ = text.Span("\U0001F4AC").FontColor(Colors.Blue.Darken2);
+                needsSeparator = true;
+            }
+
+            if (pullRequest.HasCurrentUserRequestChanges)
+            {
+                if (needsSeparator)
+                {
+                    _ = text.Span(" ");
+                }
+
+                _ = text.Span("\u274C").FontColor(Colors.Red.Darken2);
+                needsSeparator = true;
+            }
+
+            if (pullRequest.HasCurrentUserApproval)
             {
                 if (needsSeparator)
                 {

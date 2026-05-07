@@ -553,6 +553,96 @@ public sealed class BitbucketPRApiClientTests
         Directory.GetFiles(cacheDirectory.Path, "*.json", SearchOption.AllDirectories).Should().BeEmpty();
     }
 
+    [Fact(DisplayName = "GetMergedPullRequestsAsync loads merged pull requests since boundary")]
+    [Trait("Category", "Unit")]
+    public async Task GetMergedPullRequestsAsyncWhenMergedPullRequestsExistReturnsRecentRows()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repository = CreateRepository();
+        var mergedSince = new DateTimeOffset(2026, 2, 24, 0, 0, 0, TimeSpan.Zero);
+        var recentPullRequest = CreatePullRequestDto(
+            101,
+            createdOn: new DateTimeOffset(2026, 2, 23, 10, 0, 0, TimeSpan.Zero),
+            updatedOn: new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero),
+            state: "MERGED",
+            title: "Recent merge");
+        var oldPullRequest = CreatePullRequestDto(
+            102,
+            updatedOn: new DateTimeOffset(2026, 2, 23, 23, 59, 0, TimeSpan.Zero),
+            state: "MERGED",
+            title: "Old merge");
+        var sendCalls = 0;
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageDto>(
+                It.Is<Uri>(u => u.ToString() == BuildMergedPullRequestsUrl("repo-1")),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(new PullRequestPageDto([recentPullRequest, oldPullRequest], null));
+        transport
+            .Setup(t => t.GetAsync<PullRequestActivityPageDto>(
+                It.Is<Uri>(u => u.ToString() == BuildPullRequestActivityUrl("repo-1", 101)),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ReturnsAsync(CreateActivityPage(
+                """
+                {
+                  "comment": {
+                    "user": { "uuid": "{current-user}" },
+                    "created_on": "2026-02-24T10:00:00+00:00"
+                  }
+                }
+                """));
+
+        var client = CreateClient(transport.Object, new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object);
+
+        // Act
+        var pullRequests = await client.GetMergedPullRequestsAsync(repository, mergedSince, new BitbucketId("{current-user}"), cts.Token);
+
+        // Assert
+        sendCalls.Should().Be(2);
+        pullRequests.Should().ContainSingle();
+        pullRequests[0].PullRequestId.Should().Be(101);
+        pullRequests[0].Title.Should().Be("Recent merge");
+        pullRequests[0].MergedOn.Should().Be(new DateTimeOffset(2026, 2, 24, 9, 0, 0, TimeSpan.Zero));
+        pullRequests[0].HasCurrentUserDiscussion.Should().BeTrue();
+        pullRequests[0].CommentsCount.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetMergedPullRequestsAsync returns empty list when lookup fails")]
+    [Trait("Category", "Unit")]
+    public async Task GetMergedPullRequestsAsyncWhenLookupFailsReturnsEmptyList()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repository = CreateRepository();
+        var sendCalls = 0;
+
+        var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
+        transport
+            .Setup(t => t.GetAsync<PullRequestPageDto>(
+                It.Is<Uri>(u => u.ToString() == BuildMergedPullRequestsUrl("repo-1")),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => sendCalls++)
+            .ThrowsAsync(new HttpRequestException("boom"));
+
+        var client = CreateClient(transport.Object, new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object);
+
+        // Act
+        var pullRequests = await client.GetMergedPullRequestsAsync(
+            repository,
+            new DateTimeOffset(2026, 2, 24, 0, 0, 0, TimeSpan.Zero),
+            new BitbucketId("{current-user}"),
+            cts.Token);
+
+        // Assert
+        sendCalls.Should().Be(1);
+        pullRequests.Should().BeEmpty();
+    }
+
+
     private static BitbucketPRApiClient CreateClient(IBitbucketTransport transport, IPullRequestDetailsCache cache) =>
         new(transport, new BitbucketJsonParser(), cache, Options.Create(CreateOptions()));
 
@@ -697,6 +787,25 @@ public sealed class BitbucketPRApiClientTests
             "next");
 
         return $"repositories/workspace/{repositorySlug}/pullrequests?state=OPEN&pagelen=25&fields={fields}";
+    }
+
+    private static string BuildMergedPullRequestsUrl(string repositorySlug)
+    {
+        var fields = Uri.EscapeDataString(
+            "values.id," +
+            "values.title," +
+            "values.created_on," +
+            "values.updated_on," +
+            "values.description," +
+            "values.summary.raw," +
+            "values.author.uuid," +
+            "values.author.display_name," +
+            "values.participants.user.uuid," +
+            "values.participants.state," +
+            "values.participants.approved," +
+            "next");
+
+        return $"repositories/workspace/{repositorySlug}/pullrequests?state=MERGED&pagelen=25&sort=-updated_on&fields={fields}";
     }
 
     private static string BuildPullRequestActivityUrl(string repositorySlug, int pullRequestId)

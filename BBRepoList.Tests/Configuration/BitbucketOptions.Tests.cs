@@ -41,6 +41,10 @@ public sealed class BitbucketOptionsTests
         options.PullRequestDetails.TtfrThresholdHours.Should().Be(4);
         options.PullRequestDetails.MinimalDescriptionTextLength.Should().Be(1);
         options.PullRequestDetails.LoadThreshold.Should().Be(8);
+        options.MergedPullRequests.Should().NotBeNull();
+        options.MergedPullRequests.IsEnabled.Should().BeFalse();
+        options.MergedPullRequests.Days.Should().Be(1);
+        options.MergedPullRequests.LoadThreshold.Should().Be(8);
         options.Telemetry.Should().NotBeNull();
         options.Telemetry.Enabled.Should().BeFalse();
         options.LoadOpenPullRequestsStatistics.Should().BeTrue();
@@ -435,6 +439,29 @@ public sealed class BitbucketOptionsTests
         results.Should().Contain(result => result.MemberNames.Contains("Telemetry"));
     }
 
+    [Fact(DisplayName = "Validation fails when merged pull requests options are null")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenMergedPullRequestsOptionsAreNullReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            MergedPullRequests = null!
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("MergedPullRequests"));
+    }
+
     [Fact(DisplayName = "Validation fails when TTFR threshold is below one")]
     [Trait("Category", "Unit")]
     public void ValidateWhenTtfrThresholdHoursIsBelowRangeReturnsError()
@@ -563,6 +590,60 @@ public sealed class BitbucketOptionsTests
             {
                 IsEnabled = true,
                 TtfrThresholdHours = 4,
+                LoadThreshold = 65
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("LoadThreshold"));
+    }
+
+    [Fact(DisplayName = "Validation fails when merged pull requests days is below one")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenMergedPullRequestsDaysIsBelowRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            MergedPullRequests = new MergedPullRequestsOptions
+            {
+                IsEnabled = true,
+                Days = 0
+            }
+        };
+
+        // Act
+        var results = Validate(options);
+
+        // Assert
+        results.Should().Contain(result => result.MemberNames.Contains("Days"));
+    }
+
+    [Fact(DisplayName = "Validation fails when merged pull requests load threshold is above sixty four")]
+    [Trait("Category", "Unit")]
+    public void ValidateWhenMergedPullRequestsLoadThresholdIsAboveRangeReturnsError()
+    {
+        // Arrange
+        var options = new BitbucketOptions
+        {
+            BaseUrl = new Uri("https://api.bitbucket.org/2.0/", UriKind.Absolute),
+            Workspace = "workspace",
+            AuthEmail = "user@example.test",
+            AuthApiToken = "token",
+            PageLen = 25,
+            RetryCount = 0,
+            MergedPullRequests = new MergedPullRequestsOptions
+            {
+                IsEnabled = true,
                 LoadThreshold = 65
             }
         };

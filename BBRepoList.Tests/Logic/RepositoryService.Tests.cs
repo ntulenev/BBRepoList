@@ -505,6 +505,101 @@ public sealed class RepositoryServiceTests
         details.Should().BeEmpty();
     }
 
+    [Fact(DisplayName = "GetMergedPullRequestsAsync loads merged pull requests and reports progress")]
+    [Trait("Category", "Unit")]
+    public async Task GetMergedPullRequestsAsyncWhenEnabledLoadsAndSortsMergedPullRequests()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var mergedSince = new DateTimeOffset(2026, 2, 24, 0, 0, 0, TimeSpan.Zero);
+        var currentUserId = new BitbucketId("{current-user}");
+        var mergedPullRequestCalls = 0;
+        var repo1 = new Repository("Repo-1", null, null, "repo-1");
+        var repo2 = new Repository("Repo-2", null, null, "repo-2");
+
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        prApi.Setup(m => m.GetMergedPullRequestsAsync(repo1, mergedSince, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
+            .Callback(() => mergedPullRequestCalls++)
+            .ReturnsAsync(
+            [
+                new MergedPullRequest(
+                    repo1,
+                    101,
+                    "Older merge",
+                    new DateTimeOffset(2026, 2, 23, 8, 0, 0, TimeSpan.Zero),
+                    new BitbucketId("{author-1}"),
+                    "Author 1",
+                    null,
+                    null,
+                    false,
+                    new DateTimeOffset(2026, 2, 24, 10, 0, 0, TimeSpan.Zero),
+                    "Author 1")
+            ]);
+        prApi.Setup(m => m.GetMergedPullRequestsAsync(repo2, mergedSince, currentUserId, It.Is<CancellationToken>(token => token.CanBeCanceled)))
+            .Callback(() => mergedPullRequestCalls++)
+            .ReturnsAsync(
+            [
+                new MergedPullRequest(
+                    repo2,
+                    102,
+                    "Newer merge",
+                    new DateTimeOffset(2026, 2, 24, 8, 0, 0, TimeSpan.Zero),
+                    new BitbucketId("{author-2}"),
+                    "Author 2",
+                    null,
+                    null,
+                    false,
+                    new DateTimeOffset(2026, 2, 24, 12, 0, 0, TimeSpan.Zero),
+                    "Author 2")
+            ]);
+
+        var progressReports = new List<PullRequestDetailsLoadProgress>();
+        var progress = new Progress<PullRequestDetailsLoadProgress>(progressReports.Add);
+        var service = new RepositoryService(
+            api.Object,
+            prApi.Object,
+            Options.Create(CreateOptions(mergedPullRequestsEnabled: true, mergedPullRequestsLoadThreshold: 2)));
+
+        // Act
+        var pullRequests = await service.GetMergedPullRequestsAsync([repo1, repo2], mergedSince, currentUserId, progress, cts.Token);
+
+        // Assert
+        mergedPullRequestCalls.Should().Be(2);
+        pullRequests.Should().HaveCount(2);
+        pullRequests.Select(pullRequest => pullRequest.RepositoryName).Should().ContainInOrder("Repo-2", "Repo-1");
+        progressReports.Should().Contain(report => report.LoadedRepositories == 0 && report.TotalRepositories == 2);
+        progressReports.Should().Contain(report => report.LoadedRepositories == 2 && report.TotalRepositories == 2);
+    }
+
+    [Fact(DisplayName = "GetMergedPullRequestsAsync returns empty list when disabled in options")]
+    [Trait("Category", "Unit")]
+    public async Task GetMergedPullRequestsAsyncWhenDisabledReturnsEmpty()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var repository = new Repository("Repo-1", null, null, "repo-1");
+
+        var api = new Mock<IBitbucketRepoApiClient>(MockBehavior.Strict);
+        var prApi = new Mock<IBitbucketPRApiClient>(MockBehavior.Strict);
+        var service = new RepositoryService(
+            api.Object,
+            prApi.Object,
+            Options.Create(CreateOptions(mergedPullRequestsEnabled: false)));
+
+        // Act
+        var pullRequests = await service.GetMergedPullRequestsAsync(
+            [repository],
+            DateTimeOffset.UtcNow.AddDays(-1),
+            new BitbucketId("{current-user}"),
+            progress: null,
+            cts.Token);
+
+        // Assert
+        pullRequests.Should().BeEmpty();
+    }
+
+
     private static async IAsyncEnumerable<Repository> StreamRepositories(
         IReadOnlyList<Repository[]> pages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -524,7 +619,9 @@ public sealed class RepositoryServiceTests
         bool loadOpenPullRequestsStatistics = true,
         int openPullRequestsLoadThreshold = 8,
         bool prDetailsEnabled = false,
-        int prDetailsLoadThreshold = 8)
+        int prDetailsLoadThreshold = 8,
+        bool mergedPullRequestsEnabled = false,
+        int mergedPullRequestsLoadThreshold = 8)
     {
         return new BitbucketOptions
         {
@@ -538,6 +635,11 @@ public sealed class RepositoryServiceTests
             {
                 IsEnabled = prDetailsEnabled,
                 LoadThreshold = prDetailsLoadThreshold
+            },
+            MergedPullRequests = new MergedPullRequestsOptions
+            {
+                IsEnabled = mergedPullRequestsEnabled,
+                LoadThreshold = mergedPullRequestsLoadThreshold
             },
             AbandonedMonthsThreshold = 12,
             LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics,

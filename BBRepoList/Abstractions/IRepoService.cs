@@ -32,4 +32,20 @@ public interface IRepoService
         BitbucketId currentUserId,
         IProgress<PullRequestDetailsLoadProgress>? progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves recently merged pull requests for repositories.
+    /// </summary>
+    /// <param name="repositories">Source repositories to inspect.</param>
+    /// <param name="mergedSince">Inclusive lower bound for pull request merge timestamp.</param>
+    /// <param name="currentUserId">Current authenticated Bitbucket user id.</param>
+    /// <param name="progress">Optional progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Recently merged pull requests sorted for reporting.</returns>
+    Task<IReadOnlyList<MergedPullRequest>> GetMergedPullRequestsAsync(
+        IReadOnlyList<Repository> repositories,
+        DateTimeOffset mergedSince,
+        BitbucketId currentUserId,
+        IProgress<PullRequestDetailsLoadProgress>? progress,
+        CancellationToken cancellationToken);
 }

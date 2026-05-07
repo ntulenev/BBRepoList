@@ -68,6 +68,12 @@ public sealed class BitbucketOptions
     public PullRequestDetailsOptions PullRequestDetails { get; init; } = new();
 
     /// <summary>
+    /// Recently merged pull request report settings.
+    /// </summary>
+    [Required]
+    public MergedPullRequestsOptions MergedPullRequests { get; init; } = new();
+
+    /// <summary>
     /// Bitbucket API request telemetry settings.
     /// </summary>
     [Required]
@@ -117,6 +123,21 @@ public sealed class BitbucketOptions
             _ = Validator.TryValidateObject(
                 PullRequestDetails,
                 new ValidationContext(PullRequestDetails),
+                nestedResults,
+                validateAllProperties: true);
+
+            foreach (var result in nestedResults)
+            {
+                yield return result;
+            }
+        }
+
+        nestedResults.Clear();
+        if (MergedPullRequests is not null)
+        {
+            _ = Validator.TryValidateObject(
+                MergedPullRequests,
+                new ValidationContext(MergedPullRequests),
                 nestedResults,
                 validateAllProperties: true);
 

@@ -91,7 +91,10 @@ public sealed class HtmlReportRendererTests
             true,
             4,
             1,
+            false,
+            1,
             new DateTimeOffset(2026, 3, 13, 10, 0, 0, TimeSpan.Zero),
+            [],
             [],
             []);
 }

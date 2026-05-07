@@ -77,19 +77,42 @@ internal static class HtmlPresentationHelpers
 
     public static string BuildMyActivityText(PullRequestDetail detail)
     {
+        ArgumentNullException.ThrowIfNull(detail);
+
+        return BuildMyActivityText(
+            detail.HasCurrentUserDiscussion,
+            detail.HasCurrentUserRequestChanges,
+            detail.HasCurrentUserApproval);
+    }
+
+    public static string BuildMyActivityText(MergedPullRequest pullRequest)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return BuildMyActivityText(
+            pullRequest.HasCurrentUserDiscussion,
+            pullRequest.HasCurrentUserRequestChanges,
+            pullRequest.HasCurrentUserApproval);
+    }
+
+    private static string BuildMyActivityText(
+        bool hasCurrentUserDiscussion,
+        bool hasCurrentUserRequestChanges,
+        bool hasCurrentUserApproval)
+    {
         var parts = new List<string>(3);
 
-        if (detail.HasCurrentUserDiscussion)
+        if (hasCurrentUserDiscussion)
         {
             parts.Add("comment");
         }
 
-        if (detail.HasCurrentUserRequestChanges)
+        if (hasCurrentUserRequestChanges)
         {
             parts.Add("request changes");
         }
 
-        if (detail.HasCurrentUserApproval)
+        if (hasCurrentUserApproval)
         {
             parts.Add("approval");
         }
