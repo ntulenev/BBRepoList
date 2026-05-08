@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Net;
 
-using BBRepoList.Models;
-
 namespace BBRepoList.Presentation.Html;
 
 /// <summary>
@@ -19,35 +17,7 @@ internal static class HtmlPresentationHelpers
         value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
 
     public static string FormatDuration(TimeSpan duration)
-    {
-        var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
-
-        if (safeDuration.TotalDays >= 1)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}d {1}h {2}m",
-                (int)safeDuration.TotalDays,
-                safeDuration.Hours,
-                safeDuration.Minutes);
-        }
-
-        if (safeDuration.TotalHours >= 1)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}h {1}m",
-                (int)safeDuration.TotalHours,
-                safeDuration.Minutes);
-        }
-
-        if (safeDuration.TotalMinutes >= 1)
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0}m", (int)safeDuration.TotalMinutes);
-        }
-
-        return "<1m";
-    }
+        => PresentationHelpers.FormatDuration(duration);
 
     public static string? BuildRepositoryBrowseUrl(string workspace, string? repositorySlug)
     {
@@ -75,38 +45,4 @@ internal static class HtmlPresentationHelpers
         return $"https://bitbucket.org/{encodedWorkspace}/{encodedSlug}/pull-requests/{pullRequestId}";
     }
 
-    public static string BuildMyActivityText(IPullRequestReportItem pullRequest)
-    {
-        ArgumentNullException.ThrowIfNull(pullRequest);
-
-        return BuildMyActivityText(
-            pullRequest.HasCurrentUserDiscussion,
-            pullRequest.HasCurrentUserRequestChanges,
-            pullRequest.HasCurrentUserApproval);
-    }
-
-    private static string BuildMyActivityText(
-        bool hasCurrentUserDiscussion,
-        bool hasCurrentUserRequestChanges,
-        bool hasCurrentUserApproval)
-    {
-        var parts = new List<string>(3);
-
-        if (hasCurrentUserDiscussion)
-        {
-            parts.Add("comment");
-        }
-
-        if (hasCurrentUserRequestChanges)
-        {
-            parts.Add("request changes");
-        }
-
-        if (hasCurrentUserApproval)
-        {
-            parts.Add("approval");
-        }
-
-        return parts.Count == 0 ? "-" : string.Join(", ", parts);
-    }
 }

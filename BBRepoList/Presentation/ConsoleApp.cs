@@ -381,39 +381,33 @@ public sealed class ConsoleApp
 
         for (var i = 0; i < mergedPullRequests.Count; i++)
         {
-            var pullRequest = mergedPullRequests[i];
+            var row = PullRequestReportRow.FromMergedPullRequest(
+                mergedPullRequests[i],
+                asOf,
+                minimalDescriptionTextLength);
             var pullRequestText = Markup.Escape(
-                $"#{pullRequest.PullRequestId.ToString(CultureInfo.InvariantCulture)}\n{pullRequest.Title}");
-            var authorCell = Markup.Escape(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(pullRequest.AuthorDisplayName)));
-            var openedOn = pullRequest.OpenedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-            var mergedOn = pullRequest.MergedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-            var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
-            var descriptionLengthCell = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength)
-                ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
-                : descriptionLength.ToString(CultureInfo.InvariantCulture);
-            var openFor = FormatDuration(pullRequest.GetOpenDuration());
-            var ttfr = pullRequest.TimeToFirstResponse;
-            var ttfrCell = ttfr is null ? "-" : Markup.Escape(FormatDuration(ttfr.Value));
-            var mergedAge = TimeSpan.FromTicks(Math.Max((asOf - pullRequest.MergedOn).Ticks, 0));
-            var mergedAgeCell = Markup.Escape(FormatDuration(mergedAge));
-            var requestChangesText = Markup.Escape(
-                PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount));
-            var approvalsText = Markup.Escape(
-                PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount));
-            var myActivityText = GetMyActivityMarkup(pullRequest);
+                $"{row.PullRequestNumberText}\n{row.Title}");
+            var authorCell = Markup.Escape(string.Join('\n', row.AuthorDisplayNameLines));
+            var descriptionLengthCell = row.IsDescriptionShort
+                ? $"[red]{row.DescriptionLengthText}[/]"
+                : row.DescriptionLengthText;
+            var ttfrCell = Markup.Escape(row.TimeToFirstResponseText);
+            var requestChangesText = Markup.Escape(row.RequestChangesText);
+            var approvalsText = Markup.Escape(row.ApprovalsText);
+            var myActivityText = GetMyActivityMarkup(row);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
-                Markup.Escape(pullRequest.RepositoryName),
+                Markup.Escape(row.RepositoryName),
                 pullRequestText,
                 authorCell,
                 descriptionLengthCell,
-                Markup.Escape(openedOn),
-                Markup.Escape(openFor),
+                Markup.Escape(row.OpenedOnText),
+                Markup.Escape(row.OpenDurationText),
                 ttfrCell,
-                mergedAgeCell,
-                Markup.Escape(mergedOn),
-                pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                Markup.Escape(row.ActivityAgeText),
+                Markup.Escape(row.MergedOnText ?? "-"),
+                row.CommentsCountText,
                 requestChangesText,
                 approvalsText,
                 myActivityText);
@@ -448,51 +442,44 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]AP[/]"))
             .AddColumn(new TableColumn("[green]Me[/]"));
 
-        var ttfrThreshold = TimeSpan.FromHours(_options.PullRequestDetails.TtfrThresholdHours);
+        var ttfrThresholdHours = _options.PullRequestDetails.TtfrThresholdHours;
         var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
         var asOf = DateTimeOffset.UtcNow;
 
         for (var i = 0; i < pullRequestDetails.Count; i++)
         {
-            var detail = pullRequestDetails[i];
-            var openedOn = detail.OpenedOn.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-            var openDuration = detail.GetOpenDuration(asOf);
-            var openFor = FormatDuration(openDuration);
-            var ttfr = detail.TimeToFirstResponse;
-            var isTtfrPendingOverdue = ttfr is null && openDuration > ttfrThreshold;
-            var ttfrCell = ttfr is not null
-                ? Markup.Escape(FormatDuration(ttfr.Value))
-                : isTtfrPendingOverdue
+            var row = PullRequestReportRow.FromOpenPullRequest(
+                pullRequestDetails[i],
+                asOf,
+                ttfrThresholdHours,
+                minimalDescriptionTextLength);
+            var ttfrCell = row.TimeToFirstResponse is not null
+                ? Markup.Escape(row.TimeToFirstResponseText)
+                : row.IsTtfrAlert
                     ? "[red]ALERT[/]"
                     : "-";
-            var lastActivityAge = detail.GetLastActivityAge(asOf);
-            var lastActivityCell = lastActivityAge is null
-                ? "-"
-                : Markup.Escape(FormatDuration(lastActivityAge.Value));
-            var authorCell = Markup.Escape(string.Join('\n', PresentationHelpers.SplitCompactDisplayName(detail.AuthorDisplayName)));
+            var lastActivityCell = Markup.Escape(row.ActivityAgeText);
+            var authorCell = Markup.Escape(string.Join('\n', row.AuthorDisplayNameLines));
             var pullRequestText = Markup.Escape(
-                $"#{detail.PullRequestId.ToString(CultureInfo.InvariantCulture)}\n{detail.Title}");
-            var descriptionLength = detail.DescriptionText?.Length ?? 0;
-            var descriptionLengthCell = detail.HasShortOrMissingDescription(minimalDescriptionTextLength)
-                ? $"[red]{descriptionLength.ToString(CultureInfo.InvariantCulture)}[/]"
-                : descriptionLength.ToString(CultureInfo.InvariantCulture);
-            var requestChangesText = Markup.Escape(
-                PresentationHelpers.FormatRequestChangesText(detail.RequestChangesCount));
-            var approvalsText = Markup.Escape(
-                PresentationHelpers.FormatApprovalsText(detail.ApprovalsCount));
-            var myActivityText = GetMyActivityMarkup(detail);
+                $"{row.PullRequestNumberText}\n{row.Title}");
+            var descriptionLengthCell = row.IsDescriptionShort
+                ? $"[red]{row.DescriptionLengthText}[/]"
+                : row.DescriptionLengthText;
+            var requestChangesText = Markup.Escape(row.RequestChangesText);
+            var approvalsText = Markup.Escape(row.ApprovalsText);
+            var myActivityText = GetMyActivityMarkup(row);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
-                Markup.Escape(detail.RepositoryName),
+                Markup.Escape(row.RepositoryName),
                 pullRequestText,
                 authorCell,
                 descriptionLengthCell,
-                Markup.Escape(openedOn),
-                Markup.Escape(openFor),
+                Markup.Escape(row.OpenedOnText),
+                Markup.Escape(row.OpenDurationText),
                 ttfrCell,
                 lastActivityCell,
-                detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
+                row.CommentsCountText,
                 requestChangesText,
                 approvalsText,
                 myActivityText);
@@ -627,86 +614,28 @@ public sealed class ConsoleApp
         AnsiConsole.Write(table);
     }
 
-    private static string FormatDuration(TimeSpan duration)
+    private static string GetMyActivityMarkup(PullRequestReportRow row)
     {
-        var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
-
-        if (safeDuration.TotalDays >= 1)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}d {1}h {2}m",
-                (int)safeDuration.TotalDays,
-                safeDuration.Hours,
-                safeDuration.Minutes);
-        }
-
-        if (safeDuration.TotalHours >= 1)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}h {1}m",
-                (int)safeDuration.TotalHours,
-                safeDuration.Minutes);
-        }
-
-        if (safeDuration.TotalMinutes >= 1)
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0}m", (int)safeDuration.TotalMinutes);
-        }
-
-        return "<1m";
-    }
-
-    private static string GetMyActivityMarkup(PullRequestDetail detail)
-    {
-        if (!detail.HasCurrentUserActivity)
+        if (!row.HasCurrentUserActivity)
         {
             return "-";
         }
 
         var parts = new List<string>(3);
 
-        if (detail.HasCurrentUserDiscussion)
+        if (row.HasCurrentUserDiscussion)
         {
-            parts.Add("[yellow]💬[/]");
+            parts.Add("[yellow]\U0001F4AC[/]");
         }
 
-        if (detail.HasCurrentUserRequestChanges)
+        if (row.HasCurrentUserRequestChanges)
         {
-            parts.Add("[red]❌[/]");
+            parts.Add("[red]\u274C[/]");
         }
 
-        if (detail.HasCurrentUserApproval)
+        if (row.HasCurrentUserApproval)
         {
-            parts.Add("[green]✅[/]");
-        }
-
-        return string.Join(" ", parts);
-    }
-
-    private static string GetMyActivityMarkup(MergedPullRequest pullRequest)
-    {
-        if (!pullRequest.HasCurrentUserActivity)
-        {
-            return "-";
-        }
-
-        var parts = new List<string>(3);
-
-        if (pullRequest.HasCurrentUserDiscussion)
-        {
-            parts.Add("[yellow]💬[/]");
-        }
-
-        if (pullRequest.HasCurrentUserRequestChanges)
-        {
-            parts.Add("[red]âŒ[/]");
-        }
-
-        if (pullRequest.HasCurrentUserApproval)
-        {
-            parts.Add("[green]âœ…[/]");
+            parts.Add("[green]\u2705[/]");
         }
 
         return string.Join(" ", parts);

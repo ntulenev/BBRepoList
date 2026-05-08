@@ -70,11 +70,12 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 BuildRowHtml(
                     rowTemplate,
                     reportData.Workspace,
-                    reportData.PullRequestDetails[i],
-                    i + 1,
-                    reportData.GeneratedAt,
-                    reportData.TtfrThresholdHours,
-                    reportData.MinimalDescriptionTextLength));
+                    PullRequestReportRow.FromOpenPullRequest(
+                        reportData.PullRequestDetails[i],
+                        reportData.GeneratedAt,
+                        reportData.TtfrThresholdHours,
+                        reportData.MinimalDescriptionTextLength),
+                    i + 1));
         }
 
         return html.ToString();
@@ -95,10 +96,11 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 BuildRowHtml(
                     rowTemplate,
                     reportData.Workspace,
-                    reportData.MergedPullRequests[i],
-                    i + 1,
-                    reportData.GeneratedAt,
-                    reportData.MinimalDescriptionTextLength));
+                    PullRequestReportRow.FromMergedPullRequest(
+                        reportData.MergedPullRequests[i],
+                        reportData.GeneratedAt,
+                        reportData.MinimalDescriptionTextLength),
+                    i + 1));
         }
 
         return html.ToString();
@@ -124,112 +126,52 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
     private static string BuildRowHtml(
         string rowTemplate,
         string workspace,
-        PullRequestDetail detail,
-        int index,
-        DateTimeOffset generatedAt,
-        int ttfrThresholdHours,
-        int minimalDescriptionTextLength)
+        PullRequestReportRow row,
+        int index)
     {
         ArgumentNullException.ThrowIfNull(rowTemplate);
-        ArgumentNullException.ThrowIfNull(detail);
+        ArgumentNullException.ThrowIfNull(row);
 
-        var openFor = detail.GetOpenDuration(generatedAt);
-        var ttfr = detail.TimeToFirstResponse;
-        var overdueTtfr = ttfr is null && openFor > TimeSpan.FromHours(ttfrThresholdHours);
-        var lastActivityAge = detail.GetLastActivityAge(generatedAt);
-
-        return BuildRowHtml(
-            rowTemplate,
-            workspace,
-            detail,
-            index,
-            openFor,
-            lastActivityAge,
-            overdueTtfr,
-            minimalDescriptionTextLength);
-    }
-
-    private static string BuildRowHtml(
-        string rowTemplate,
-        string workspace,
-        MergedPullRequest pullRequest,
-        int index,
-        DateTimeOffset generatedAt,
-        int minimalDescriptionTextLength)
-    {
-        ArgumentNullException.ThrowIfNull(rowTemplate);
-        ArgumentNullException.ThrowIfNull(pullRequest);
-
-        var openFor = pullRequest.GetOpenDuration();
-        var mergedAge = TimeSpan.FromTicks(Math.Max((generatedAt - pullRequest.MergedOn).Ticks, 0));
-
-        return BuildRowHtml(
-            rowTemplate,
-            workspace,
-            pullRequest,
-            index,
-            openFor,
-            mergedAge,
-            overdueTtfr: false,
-            minimalDescriptionTextLength);
-    }
-
-    private static string BuildRowHtml(
-        string rowTemplate,
-        string workspace,
-        IPullRequestReportItem pullRequest,
-        int index,
-        TimeSpan openFor,
-        TimeSpan? activityAge,
-        bool overdueTtfr,
-        int minimalDescriptionTextLength)
-    {
-        var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, pullRequest.RepositorySlug);
+        var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, row.RepositorySlug);
         var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(
             workspace,
-            pullRequest.RepositorySlug,
-            pullRequest.PullRequestId);
-        var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
-        var isDescriptionShort = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength);
-        var ttfr = pullRequest.TimeToFirstResponse;
-        var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(pullRequest);
-        var requestChangesText = PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount);
-        var approvalsText = PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount);
+            row.RepositorySlug,
+            row.PullRequestId);
 
         return ApplyTemplate(
             rowTemplate,
             new Dictionary<string, string>(28, StringComparer.Ordinal)
             {
                 ["__INDEX__"] = index.ToString(CultureInfo.InvariantCulture),
-                ["__REPOSITORY_NAME__"] = HtmlPresentationHelpers.Encode(pullRequest.RepositoryName),
-                ["__PULL_REQUEST_ID__"] = pullRequest.PullRequestId.ToString(CultureInfo.InvariantCulture),
-                ["__TITLE__"] = HtmlPresentationHelpers.Encode(pullRequest.Title),
-                ["__AUTHOR_DISPLAY_NAME_SORT__"] = HtmlPresentationHelpers.Encode(pullRequest.AuthorDisplayName ?? "-"),
-                ["__AUTHOR_DISPLAY_NAME_DISPLAY__"] = BuildCompactAuthorDisplayName(pullRequest.AuthorDisplayName),
-                ["__PULL_REQUEST_LINK__"] = BuildPullRequestLink(pullRequestUrl, pullRequest.PullRequestId, pullRequest.Title),
-                ["__REPOSITORY_LINK__"] = BuildLink(repositoryUrl, pullRequest.RepositoryName),
-                ["__DESCRIPTION_LENGTH__"] = descriptionLength.ToString(CultureInfo.InvariantCulture),
-                ["__DESCRIPTION_SHORT_CLASS__"] = isDescriptionShort ? " class=\"description-short\"" : string.Empty,
-                ["__OPEN_FOR_SORT__"] = ((long)openFor.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__OPEN_FOR__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor)),
-                ["__TTFR_SORT__"] = (ttfr is null ? -1L : (long)ttfr.Value.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(
-                    ttfr is null ? (overdueTtfr ? "alert" : "-") : HtmlPresentationHelpers.FormatDuration(ttfr.Value)),
-                ["__TTFR__"] = BuildTtfrCell(ttfr, overdueTtfr),
-                ["__LAST_ACTIVITY_SORT__"] = (activityAge is null ? -1L : (long)activityAge.Value.TotalMinutes)
+                ["__REPOSITORY_NAME__"] = HtmlPresentationHelpers.Encode(row.RepositoryName),
+                ["__PULL_REQUEST_ID__"] = row.PullRequestId.ToString(CultureInfo.InvariantCulture),
+                ["__TITLE__"] = HtmlPresentationHelpers.Encode(row.Title),
+                ["__AUTHOR_DISPLAY_NAME_SORT__"] = HtmlPresentationHelpers.Encode(row.AuthorDisplayName ?? "-"),
+                ["__AUTHOR_DISPLAY_NAME_DISPLAY__"] = BuildCompactAuthorDisplayName(row),
+                ["__PULL_REQUEST_LINK__"] = BuildPullRequestLink(pullRequestUrl, row.PullRequestId, row.Title),
+                ["__REPOSITORY_LINK__"] = BuildLink(repositoryUrl, row.RepositoryName),
+                ["__DESCRIPTION_LENGTH__"] = row.DescriptionLengthText,
+                ["__DESCRIPTION_SHORT_CLASS__"] = row.IsDescriptionShort ? " class=\"description-short\"" : string.Empty,
+                ["__OPEN_FOR_SORT__"] = ((long)row.OpenDuration.TotalMinutes).ToString(CultureInfo.InvariantCulture),
+                ["__OPEN_FOR__"] = HtmlPresentationHelpers.Encode(row.OpenDurationText),
+                ["__TTFR_SORT__"] = (row.TimeToFirstResponse is null ? -1L : (long)row.TimeToFirstResponse.Value.TotalMinutes)
                     .ToString(CultureInfo.InvariantCulture),
-                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(
-                    activityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(activityAge.Value)),
-                ["__COMMENTS_COUNT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
-                ["__COMMENTS_TEXT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
-                ["__REQUEST_CHANGES_COUNT__"] = pullRequest.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
-                ["__REQUEST_CHANGES_TEXT__"] = HtmlPresentationHelpers.Encode(requestChangesText),
-                ["__REQUEST_CHANGES_BADGE__"] = BuildBadge(requestChangesText, "rc"),
-                ["__APPROVALS_COUNT__"] = pullRequest.ApprovalsCount.ToString(CultureInfo.InvariantCulture),
-                ["__APPROVALS_TEXT__"] = HtmlPresentationHelpers.Encode(approvalsText),
-                ["__APPROVALS_BADGE__"] = BuildBadge(approvalsText, "ap"),
-                ["__MY_ACTIVITY_TEXT__"] = HtmlPresentationHelpers.Encode(myActivityText),
-                ["__MY_ACTIVITY_BADGE__"] = BuildActivityBadge(pullRequest)
+                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(
+                    row.TimeToFirstResponse is null ? (row.IsTtfrAlert ? "alert" : "-") : row.TimeToFirstResponseText),
+                ["__TTFR__"] = BuildTtfrCell(row),
+                ["__LAST_ACTIVITY_SORT__"] = (row.ActivityAge is null ? -1L : (long)row.ActivityAge.Value.TotalMinutes)
+                    .ToString(CultureInfo.InvariantCulture),
+                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(row.ActivityAgeText),
+                ["__COMMENTS_COUNT__"] = row.CommentsCountText,
+                ["__COMMENTS_TEXT__"] = row.CommentsCountText,
+                ["__REQUEST_CHANGES_COUNT__"] = row.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
+                ["__REQUEST_CHANGES_TEXT__"] = HtmlPresentationHelpers.Encode(row.RequestChangesText),
+                ["__REQUEST_CHANGES_BADGE__"] = BuildBadge(row.RequestChangesText, "rc"),
+                ["__APPROVALS_COUNT__"] = row.ApprovalsCount.ToString(CultureInfo.InvariantCulture),
+                ["__APPROVALS_TEXT__"] = HtmlPresentationHelpers.Encode(row.ApprovalsText),
+                ["__APPROVALS_BADGE__"] = BuildBadge(row.ApprovalsText, "ap"),
+                ["__MY_ACTIVITY_TEXT__"] = HtmlPresentationHelpers.Encode(row.CurrentUserActivityText),
+                ["__MY_ACTIVITY_BADGE__"] = BuildActivityBadge(row)
             });
     }
 
@@ -267,16 +209,16 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
             : $"<a href=\"{HtmlPresentationHelpers.Encode(url)}\" class=\"pr-link\" target=\"_blank\" rel=\"noreferrer\"><span class=\"pr-number\">{encodedNumber}</span><span>{encodedTitle}</span></a>";
     }
 
-    private static string BuildTtfrCell(TimeSpan? ttfr, bool overdueTtfr)
+    private static string BuildTtfrCell(PullRequestReportRow row)
     {
-        if (ttfr is null)
+        if (row.TimeToFirstResponse is null)
         {
-            return overdueTtfr
+            return row.IsTtfrAlert
                 ? "<span class=\"ttfr-alert\">ALERT</span>"
                 : "-";
         }
 
-        return HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(ttfr.Value));
+        return HtmlPresentationHelpers.Encode(row.TimeToFirstResponseText);
     }
 
     private static string BuildBadge(string text, string cssClass)
@@ -287,32 +229,29 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
             : $"<span class=\"badge {cssClass}\">{encodedText}</span>";
     }
 
-    private static string BuildCompactAuthorDisplayName(string? authorDisplayName)
-    {
-        var lines = PresentationHelpers.SplitCompactDisplayName(authorDisplayName);
-        return string.Join("<br />", lines.Select(HtmlPresentationHelpers.Encode));
-    }
+    private static string BuildCompactAuthorDisplayName(PullRequestReportRow row) =>
+        string.Join("<br />", row.AuthorDisplayNameLines.Select(HtmlPresentationHelpers.Encode));
 
-    private static string BuildActivityBadge(IPullRequestReportItem pullRequest)
+    private static string BuildActivityBadge(PullRequestReportRow row)
     {
-        if (!pullRequest.HasCurrentUserActivity)
+        if (!row.HasCurrentUserActivity)
         {
             return "-";
         }
 
         var parts = new List<string>(3);
 
-        if (pullRequest.HasCurrentUserDiscussion)
+        if (row.HasCurrentUserDiscussion)
         {
             parts.Add("<span class=\"activity-icon\" title=\"Comment\">&#128172;</span>");
         }
 
-        if (pullRequest.HasCurrentUserRequestChanges)
+        if (row.HasCurrentUserRequestChanges)
         {
             parts.Add("<span class=\"activity-icon\" title=\"Request changes\">&#10060;</span>");
         }
 
-        if (pullRequest.HasCurrentUserApproval)
+        if (row.HasCurrentUserApproval)
         {
             parts.Add("<span class=\"activity-icon\" title=\"Approval\">&#9989;</span>");
         }

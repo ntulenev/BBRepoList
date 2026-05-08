@@ -75,6 +75,42 @@ public static class PresentationHelpers
             : string.Format(CultureInfo.InvariantCulture, "AP ({0})", approvalsCount);
     }
 
+    /// <summary>
+    /// Formats a duration for compact report cells.
+    /// </summary>
+    /// <param name="duration">Duration to format.</param>
+    /// <returns>Compact duration text.</returns>
+    public static string FormatDuration(TimeSpan duration)
+    {
+        var safeDuration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
+
+        if (safeDuration.TotalDays >= 1)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}d {1}h {2}m",
+                (int)safeDuration.TotalDays,
+                safeDuration.Hours,
+                safeDuration.Minutes);
+        }
+
+        if (safeDuration.TotalHours >= 1)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}h {1}m",
+                (int)safeDuration.TotalHours,
+                safeDuration.Minutes);
+        }
+
+        if (safeDuration.TotalMinutes >= 1)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "{0}m", (int)safeDuration.TotalMinutes);
+        }
+
+        return "<1m";
+    }
+
     private static int FindBestDisplayNameSplitIndex(string[] parts)
     {
         var totalLength = CalculateCombinedLength(parts, 0, parts.Length);
