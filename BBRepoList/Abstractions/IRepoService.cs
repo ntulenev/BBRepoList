@@ -30,7 +30,7 @@ public interface IRepoService
     Task<IReadOnlyList<PullRequestDetail>> GetOpenPullRequestDetailsAsync(
         IReadOnlyList<Repository> repositories,
         BitbucketId currentUserId,
-        IProgress<PullRequestDetailsLoadProgress>? progress,
+        IProgress<PullRequestRepositoryLoadProgress>? progress,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -46,6 +46,6 @@ public interface IRepoService
         IReadOnlyList<Repository> repositories,
         DateTimeOffset mergedSince,
         BitbucketId currentUserId,
-        IProgress<PullRequestDetailsLoadProgress>? progress,
+        IProgress<PullRequestRepositoryLoadProgress>? progress,
         CancellationToken cancellationToken);
 }

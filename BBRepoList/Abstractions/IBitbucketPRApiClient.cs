@@ -3,7 +3,7 @@ using BBRepoList.Models;
 namespace BBRepoList.Abstractions;
 
 /// <summary>
-/// Bitbucket API client abstraction for open pull request details.
+/// Bitbucket API client abstraction for pull request operations.
 /// </summary>
 public interface IBitbucketPRApiClient
 {

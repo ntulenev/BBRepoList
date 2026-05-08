@@ -7,10 +7,14 @@ internal static class HtmlTemplateLoader
 {
     private static readonly Lazy<string> _reportTemplate = new(() => LoadTemplate("BBRepoList.HtmlTemplates.ReportDocument.html"));
     private static readonly Lazy<string> _pullRequestRowTemplate = new(() => LoadTemplate("BBRepoList.HtmlTemplates.PullRequestRow.html"));
+    private static readonly Lazy<string> _mergedPullRequestSectionTemplate =
+        new(() => LoadTemplate("BBRepoList.HtmlTemplates.MergedPullRequestSection.html"));
 
     public static string LoadReportTemplate() => _reportTemplate.Value;
 
     public static string LoadPullRequestRowTemplate() => _pullRequestRowTemplate.Value;
+
+    public static string LoadMergedPullRequestSectionTemplate() => _mergedPullRequestSectionTemplate.Value;
 
     private static string LoadTemplate(string resourceName)
     {

@@ -3,7 +3,7 @@ namespace BBRepoList.Models;
 /// <summary>
 /// Recently merged pull request details used by reporting.
 /// </summary>
-public sealed class MergedPullRequest
+public sealed class MergedPullRequest : IPullRequestReportItem
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MergedPullRequest"/> class.

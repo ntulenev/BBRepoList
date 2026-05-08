@@ -38,7 +38,7 @@ public sealed class HtmlReportRenderer : IHtmlReportRenderer
     }
 
     /// <inheritdoc />
-    public void RenderReport(RepositoryPdfReportData reportData)
+    public void RenderReport(RepositoryReportData reportData)
     {
         ArgumentNullException.ThrowIfNull(reportData);
 

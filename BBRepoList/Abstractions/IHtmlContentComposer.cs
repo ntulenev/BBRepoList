@@ -12,5 +12,5 @@ public interface IHtmlContentComposer
     /// </summary>
     /// <param name="reportData">Aggregated report data.</param>
     /// <returns>HTML document text.</returns>
-    string Compose(RepositoryPdfReportData reportData);
+    string Compose(RepositoryReportData reportData);
 }

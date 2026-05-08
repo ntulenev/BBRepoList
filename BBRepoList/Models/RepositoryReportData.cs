@@ -1,12 +1,12 @@
 namespace BBRepoList.Models;
 
 /// <summary>
-/// Aggregated data used by PDF report generation.
+/// Aggregated data used by report generation.
 /// </summary>
-public sealed class RepositoryPdfReportData
+public sealed class RepositoryReportData
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="RepositoryPdfReportData"/> class.
+    /// Initializes a new instance of the <see cref="RepositoryReportData"/> class.
     /// </summary>
     /// <param name="workspace">Workspace name.</param>
     /// <param name="filterPhrase">Filter phrase.</param>
@@ -20,7 +20,7 @@ public sealed class RepositoryPdfReportData
     /// <param name="repositories">Repositories included in report.</param>
     /// <param name="mergedPullRequests">Recently merged pull request report rows.</param>
     /// <param name="pullRequestDetails">Open pull request details report rows.</param>
-    public RepositoryPdfReportData(
+    public RepositoryReportData(
         string workspace,
         string? filterPhrase,
         int abandonedMonthsThreshold,

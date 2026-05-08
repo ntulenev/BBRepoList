@@ -11,5 +11,5 @@ public interface IPdfReportRenderer
     /// Renders and saves PDF report.
     /// </summary>
     /// <param name="reportData">Aggregated report data.</param>
-    void RenderReport(RepositoryPdfReportData reportData);
+    void RenderReport(RepositoryReportData reportData);
 }

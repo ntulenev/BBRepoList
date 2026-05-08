@@ -12,7 +12,7 @@ public sealed class HtmlContentComposerTests
     public void ComposeWhenThereAreNoPullRequestDetailsRendersEmptyState()
     {
         var composer = new HtmlContentComposer();
-        var reportData = new RepositoryPdfReportData(
+        var reportData = new RepositoryReportData(
             "workspace",
             null,
             12,
@@ -58,7 +58,7 @@ public sealed class HtmlContentComposerTests
             hasCurrentUserRequestChanges: true,
             approvalsCount: 1,
             hasCurrentUserApproval: true);
-        var reportData = new RepositoryPdfReportData(
+        var reportData = new RepositoryReportData(
             "workspace",
             "<hotfix>",
             12,
@@ -114,7 +114,7 @@ public sealed class HtmlContentComposerTests
             hasCurrentUserRequestChanges: true,
             approvalsCount: 2,
             hasCurrentUserApproval: true);
-        var reportData = new RepositoryPdfReportData(
+        var reportData = new RepositoryReportData(
             "workspace",
             null,
             12,

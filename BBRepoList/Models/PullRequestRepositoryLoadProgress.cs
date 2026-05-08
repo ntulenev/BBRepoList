@@ -1,16 +1,16 @@
 namespace BBRepoList.Models;
 
 /// <summary>
-/// Progress snapshot for open pull request details loading.
+/// Progress snapshot for pull request loading by repository.
 /// </summary>
-public sealed class PullRequestDetailsLoadProgress
+public sealed class PullRequestRepositoryLoadProgress
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="PullRequestDetailsLoadProgress"/> class.
+    /// Initializes a new instance of the <see cref="PullRequestRepositoryLoadProgress"/> class.
     /// </summary>
     /// <param name="loadedRepositories">Completed repositories count.</param>
     /// <param name="totalRepositories">Total repositories count.</param>
-    public PullRequestDetailsLoadProgress(int loadedRepositories, int totalRepositories)
+    public PullRequestRepositoryLoadProgress(int loadedRepositories, int totalRepositories)
     {
         if (loadedRepositories < 0)
         {

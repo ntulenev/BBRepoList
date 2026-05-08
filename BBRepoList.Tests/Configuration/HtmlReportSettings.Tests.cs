@@ -17,7 +17,7 @@ public sealed class HtmlReportSettingsTests
 
         // Assert
         settings.Enabled.Should().BeTrue();
-        settings.OutputPath.Should().Be("bbrepolist-open-pr-details.html");
+        settings.OutputPath.Should().Be("bbrepolist-pr-details.html");
         settings.OpenInBrowser.Should().BeFalse();
     }
 
@@ -26,7 +26,7 @@ public sealed class HtmlReportSettingsTests
     public void ResolveOutputPathWhenOutputPathIsRelativeReturnsAbsolutePathWithDateSuffix()
     {
         // Arrange
-        var settings = new HtmlReportSettings(true, "reports\\bbrepolist-open-pr-details.html");
+        var settings = new HtmlReportSettings(true, "reports\\bbrepolist-pr-details.html");
         var dateSuffix = DateTime.Now.ToString("dd_MM_yyyy", CultureInfo.InvariantCulture);
 
         // Act
@@ -34,6 +34,6 @@ public sealed class HtmlReportSettingsTests
 
         // Assert
         Path.IsPathRooted(resolvedPath).Should().BeTrue();
-        resolvedPath.Should().Contain("bbrepolist-open-pr-details_" + dateSuffix + ".html");
+        resolvedPath.Should().Contain("bbrepolist-pr-details_" + dateSuffix + ".html");
     }
 }

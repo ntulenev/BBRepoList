@@ -13,7 +13,7 @@ public sealed class HtmlOptions
     /// <summary>
     /// Gets or sets output file path for generated HTML report.
     /// </summary>
-    public string OutputPath { get; init; } = "bbrepolist-open-pr-details.html";
+    public string OutputPath { get; init; } = "bbrepolist-pr-details.html";
 
     /// <summary>
     /// Gets or sets whether generated HTML report should be opened in the default browser.

@@ -181,37 +181,37 @@ public sealed class RepositoryTests
         repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
     }
 
-    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is true when slug is present")]
+    [Fact(DisplayName = "CanLoadPullRequests is true when slug is present")]
     [Trait("Category", "Unit")]
-    public void CanLoadOpenPullRequestDetailsWhenSlugIsPresentReturnsTrue()
+    public void CanLoadPullRequestsWhenSlugIsPresentReturnsTrue()
     {
         // Arrange
         var repo = new Repository("Repo-1", null, null, "repo-1");
 
         // Assert
-        repo.CanLoadOpenPullRequestDetails.Should().BeTrue();
+        repo.CanLoadPullRequests.Should().BeTrue();
     }
 
-    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is false when slug is missing")]
+    [Fact(DisplayName = "CanLoadPullRequests is false when slug is missing")]
     [Trait("Category", "Unit")]
-    public void CanLoadOpenPullRequestDetailsWhenSlugIsMissingReturnsFalse()
+    public void CanLoadPullRequestsWhenSlugIsMissingReturnsFalse()
     {
         // Arrange
         var repo = new Repository("Repo-1");
 
         // Assert
-        repo.CanLoadOpenPullRequestDetails.Should().BeFalse();
+        repo.CanLoadPullRequests.Should().BeFalse();
     }
 
-    [Fact(DisplayName = "CanLoadOpenPullRequestDetails is true when open pull requests count is zero but slug is present")]
+    [Fact(DisplayName = "CanLoadPullRequests is true when open pull requests count is zero but slug is present")]
     [Trait("Category", "Unit")]
-    public void CanLoadOpenPullRequestDetailsWhenOpenPullRequestsCountIsZeroReturnsTrue()
+    public void CanLoadPullRequestsWhenOpenPullRequestsCountIsZeroReturnsTrue()
     {
         // Arrange
         var repo = new Repository("Repo-1", null, null, "repo-1");
 
         // Assert
-        repo.CanLoadOpenPullRequestDetails.Should().BeTrue();
+        repo.CanLoadPullRequests.Should().BeTrue();
     }
 
     [Fact(DisplayName = "Constructor marks inactivity timing as calculable when created and updated dates are provided")]
@@ -276,7 +276,7 @@ public sealed class RepositoryTests
         repo.OpenPullRequestsCount.Should().Be(0);
         repo.Slug.Should().BeNull();
         repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
-        repo.CanLoadOpenPullRequestDetails.Should().BeFalse();
+        repo.CanLoadPullRequests.Should().BeFalse();
         repo.CanCalculateInactivityTiming.Should().BeFalse();
         repo.MonthsWithoutActivity.Should().Be(0);
     }

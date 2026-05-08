@@ -104,7 +104,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadPullRequestSnapshotsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
@@ -181,7 +181,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadPullRequestSnapshotsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("app"), progress, cts.Token);
@@ -241,7 +241,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: true)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadPullRequestSnapshotsStatistics: true)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern("XXX"), progress, cts.Token);
@@ -288,7 +288,7 @@ public sealed class RepositoryServiceTests
         var progressReports = new List<RepoLoadProgress>();
         var progress = new Progress<RepoLoadProgress>(progressReports.Add);
 
-        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadOpenPullRequestsStatistics: false)));
+        var service = new RepositoryService(api.Object, prApi.Object, Options.Create(CreateOptions(loadPullRequestSnapshotsStatistics: false)));
 
         // Act
         var repositories = await service.GetRepositoriesAsync(new FilterPattern(null), progress, cts.Token);
@@ -304,7 +304,7 @@ public sealed class RepositoryServiceTests
 
     [Fact(DisplayName = "GetRepositoriesAsync skips open pull requests statistics when PR details are enabled")]
     [Trait("Category", "Unit")]
-    public async Task GetRepositoriesAsyncWhenPrDetailsAreEnabledDoesNotLoadOpenPullRequestStatistics()
+    public async Task GetRepositoriesAsyncWhenPrDetailsAreEnabledDoesNotLoadPullRequestSnapshotStatistics()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -331,7 +331,7 @@ public sealed class RepositoryServiceTests
             api.Object,
             prApi.Object,
             Options.Create(CreateOptions(
-                loadOpenPullRequestsStatistics: true,
+                loadPullRequestSnapshotsStatistics: true,
                 prDetailsEnabled: true)));
 
         // Act
@@ -393,7 +393,7 @@ public sealed class RepositoryServiceTests
             api.Object,
             prApi.Object,
             Options.Create(CreateOptions(
-                loadOpenPullRequestsStatistics: true,
+                loadPullRequestSnapshotsStatistics: true,
                 openPullRequestsLoadThreshold: 2)));
 
         // Act
@@ -458,8 +458,8 @@ public sealed class RepositoryServiceTests
             .Callback(() => prDetailCalls++)
             .ReturnsAsync([]);
 
-        var progressReports = new List<PullRequestDetailsLoadProgress>();
-        var progress = new Progress<PullRequestDetailsLoadProgress>(progressReports.Add);
+        var progressReports = new List<PullRequestRepositoryLoadProgress>();
+        var progress = new Progress<PullRequestRepositoryLoadProgress>(progressReports.Add);
 
         var service = new RepositoryService(
             api.Object,
@@ -554,8 +554,8 @@ public sealed class RepositoryServiceTests
                     "Author 2")
             ]);
 
-        var progressReports = new List<PullRequestDetailsLoadProgress>();
-        var progress = new Progress<PullRequestDetailsLoadProgress>(progressReports.Add);
+        var progressReports = new List<PullRequestRepositoryLoadProgress>();
+        var progress = new Progress<PullRequestRepositoryLoadProgress>(progressReports.Add);
         var service = new RepositoryService(
             api.Object,
             prApi.Object,
@@ -616,7 +616,7 @@ public sealed class RepositoryServiceTests
     }
 
     private static BitbucketOptions CreateOptions(
-        bool loadOpenPullRequestsStatistics = true,
+        bool loadPullRequestSnapshotsStatistics = true,
         int openPullRequestsLoadThreshold = 8,
         bool prDetailsEnabled = false,
         int prDetailsLoadThreshold = 8,
@@ -642,7 +642,7 @@ public sealed class RepositoryServiceTests
                 LoadThreshold = mergedPullRequestsLoadThreshold
             },
             AbandonedMonthsThreshold = 12,
-            LoadOpenPullRequestsStatistics = loadOpenPullRequestsStatistics,
+            LoadOpenPullRequestsStatistics = loadPullRequestSnapshotsStatistics,
             OpenPullRequestsLoadThreshold = openPullRequestsLoadThreshold
         };
     }

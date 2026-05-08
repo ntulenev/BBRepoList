@@ -25,7 +25,7 @@ public sealed class HtmlReportRendererTests
         fileStore.Setup(store => store.Save(It.IsAny<string>(), htmlContent));
 
         var composer = new Mock<IHtmlContentComposer>(MockBehavior.Strict);
-        composer.Setup(c => c.Compose(It.IsAny<RepositoryPdfReportData>())).Returns(htmlContent);
+        composer.Setup(c => c.Compose(It.IsAny<RepositoryReportData>())).Returns(htmlContent);
 
         var launcher = new Mock<IHtmlReportLauncher>(MockBehavior.Strict);
         launcher.Setup(l => l.Open(It.IsAny<string>()));
@@ -52,7 +52,7 @@ public sealed class HtmlReportRendererTests
         fileStore.Setup(store => store.Save(It.IsAny<string>(), htmlContent));
 
         var composer = new Mock<IHtmlContentComposer>(MockBehavior.Strict);
-        composer.Setup(c => c.Compose(It.IsAny<RepositoryPdfReportData>())).Returns(htmlContent);
+        composer.Setup(c => c.Compose(It.IsAny<RepositoryReportData>())).Returns(htmlContent);
 
         var launcher = new Mock<IHtmlReportLauncher>(MockBehavior.Strict);
 
@@ -83,7 +83,7 @@ public sealed class HtmlReportRendererTests
             }
         });
 
-    private static RepositoryPdfReportData CreateReportData() =>
+    private static RepositoryReportData CreateReportData() =>
         new(
             "workspace",
             null,

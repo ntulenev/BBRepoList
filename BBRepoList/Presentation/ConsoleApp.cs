@@ -83,7 +83,7 @@ public sealed class ConsoleApp
 
         ShowResultsHeader(sortedRepositories.Count);
         RenderRepositoriesTable(sortedRepositories);
-        RenderOpenPullRequestsTableIfAny(sortedRepositories);
+        RenderPullRequestSnapshotsTableIfAny(sortedRepositories);
         RenderMergedPullRequestsTableIfAny(mergedPullRequests);
         RenderPullRequestDetailsReportIfAny(pullRequestDetails);
         RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
@@ -211,14 +211,14 @@ public sealed class ConsoleApp
         }
 
         IReadOnlyList<PullRequestDetail> pullRequestDetails = [];
-        PullRequestDetailsLoadProgress? lastProgress = null;
+        PullRequestRepositoryLoadProgress? lastProgress = null;
 
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Loading Open PR details...", async ctx =>
             {
-                var progress = new Progress<PullRequestDetailsLoadProgress>(p =>
+                var progress = new Progress<PullRequestRepositoryLoadProgress>(p =>
                 {
                     lastProgress = p;
                     _ = ctx.Status($"Loading Open PR details... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
@@ -248,7 +248,7 @@ public sealed class ConsoleApp
         }
 
         IReadOnlyList<MergedPullRequest> mergedPullRequests = [];
-        PullRequestDetailsLoadProgress? lastProgress = null;
+        PullRequestRepositoryLoadProgress? lastProgress = null;
         var mergedSince = reportOpenedAt.AddDays(-_options.MergedPullRequests.Days);
 
         await AnsiConsole.Status()
@@ -256,7 +256,7 @@ public sealed class ConsoleApp
             .SpinnerStyle(Style.Parse("green"))
             .StartAsync("Loading recently merged PRs...", async ctx =>
             {
-                var progress = new Progress<PullRequestDetailsLoadProgress>(p =>
+                var progress = new Progress<PullRequestRepositoryLoadProgress>(p =>
                 {
                     lastProgress = p;
                     _ = ctx.Status($"Loading recently merged PRs... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
@@ -309,15 +309,15 @@ public sealed class ConsoleApp
         AnsiConsole.Write(table);
     }
 
-    private static void RenderOpenPullRequestsTableIfAny(List<Repository> sortedRepositories)
+    private static void RenderPullRequestSnapshotsTableIfAny(List<Repository> sortedRepositories)
     {
-        var repositoriesWithOpenPullRequests = sortedRepositories
+        var repositoriesWithPullRequestSnapshots = sortedRepositories
             .Where(static repository => repository.OpenPullRequestsCount > 0)
             .OrderBy(static repository => repository.CreatedOn ?? DateTimeOffset.MaxValue)
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (repositoriesWithOpenPullRequests.Count == 0)
+        if (repositoriesWithPullRequestSnapshots.Count == 0)
         {
             return;
         }
@@ -332,9 +332,9 @@ public sealed class ConsoleApp
             .AddColumn(new TableColumn("[green]Created on[/]"))
             .AddColumn(new TableColumn("[green]Open pull requests[/]"));
 
-        for (var i = 0; i < repositoriesWithOpenPullRequests.Count; i++)
+        for (var i = 0; i < repositoriesWithPullRequestSnapshots.Count; i++)
         {
-            var repository = repositoriesWithOpenPullRequests[i];
+            var repository = repositoriesWithPullRequestSnapshots[i];
             var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
             var openPullRequests = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
 
@@ -556,7 +556,7 @@ public sealed class ConsoleApp
         IReadOnlyList<PullRequestDetail> pullRequestDetails,
         FilterPattern filterPattern)
     {
-        var reportData = new RepositoryPdfReportData(
+        var reportData = new RepositoryReportData(
             _options.Workspace,
             filterPattern.Phrase,
             _options.AbandonedMonthsThreshold,
@@ -579,7 +579,7 @@ public sealed class ConsoleApp
         IReadOnlyList<PullRequestDetail> pullRequestDetails,
         FilterPattern filterPattern)
     {
-        var reportData = new RepositoryPdfReportData(
+        var reportData = new RepositoryReportData(
             _options.Workspace,
             filterPattern.Phrase,
             _options.AbandonedMonthsThreshold,

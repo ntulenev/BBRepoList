@@ -3,7 +3,7 @@ namespace BBRepoList.Models;
 /// <summary>
 /// Open pull request details used by reporting.
 /// </summary>
-public sealed class PullRequestDetail
+public sealed class PullRequestDetail : IPullRequestReportItem
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="PullRequestDetail"/> class.

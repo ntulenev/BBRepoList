@@ -25,11 +25,12 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         IBitbucketTransport transport = null!;
         var parser = new BitbucketJsonParser();
+        var analyzer = new PullRequestActivityAnalyzer();
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport, parser, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport, parser, analyzer, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -42,11 +43,12 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         IBitbucketJsonParser parser = null!;
+        var analyzer = new PullRequestActivityAnalyzer();
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -59,11 +61,12 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
+        var analyzer = new PullRequestActivityAnalyzer();
         IPullRequestDetailsCache cache = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -76,11 +79,12 @@ public sealed class BitbucketPRApiClientTests
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
+        var analyzer = new PullRequestActivityAnalyzer();
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -507,7 +511,7 @@ public sealed class BitbucketPRApiClientTests
 
     [Fact(DisplayName = "GetOpenPullRequestDetailsAsync updates repository count and returns empty list when no open pull requests exist")]
     [Trait("Category", "Unit")]
-    public async Task GetOpenPullRequestDetailsAsyncWhenNoOpenPullRequestsExistUpdatesRepositoryCount()
+    public async Task GetOpenPullRequestDetailsAsyncWhenNoPullRequestSnapshotsExistUpdatesRepositoryCount()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -644,7 +648,12 @@ public sealed class BitbucketPRApiClientTests
 
 
     private static BitbucketPRApiClient CreateClient(IBitbucketTransport transport, IPullRequestDetailsCache cache) =>
-        new(transport, new BitbucketJsonParser(), cache, Options.Create(CreateOptions()));
+        new(
+            transport,
+            new BitbucketJsonParser(),
+            new PullRequestActivityAnalyzer(),
+            cache,
+            Options.Create(CreateOptions()));
 
     private static Mock<IBitbucketTransport> CreateTransportForPullRequestDetails(
         string repositorySlug,

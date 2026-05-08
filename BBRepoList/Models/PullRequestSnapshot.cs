@@ -1,7 +1,7 @@
 namespace BBRepoList.Models;
 
 /// <summary>
-/// Lightweight open pull request projection used during PR detail loading.
+/// Lightweight pull request projection used during PR detail loading.
 /// </summary>
 /// <param name="Id">Pull request identifier within repository scope.</param>
 /// <param name="Title">Pull request title.</param>
@@ -14,7 +14,7 @@ namespace BBRepoList.Models;
 /// <param name="ApprovalsCount">Active approvals count.</param>
 /// <param name="HasCurrentUserApproval">Whether current user currently approves the pull request.</param>
 /// <param name="CacheFingerprint">Fingerprint built from lightweight pull request fields for cache validation.</param>
-internal readonly record struct OpenPullRequest(
+public readonly record struct PullRequestSnapshot(
     int Id,
     string Title,
     DateTimeOffset CreatedOn,

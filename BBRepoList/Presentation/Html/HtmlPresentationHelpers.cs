@@ -75,17 +75,7 @@ internal static class HtmlPresentationHelpers
         return $"https://bitbucket.org/{encodedWorkspace}/{encodedSlug}/pull-requests/{pullRequestId}";
     }
 
-    public static string BuildMyActivityText(PullRequestDetail detail)
-    {
-        ArgumentNullException.ThrowIfNull(detail);
-
-        return BuildMyActivityText(
-            detail.HasCurrentUserDiscussion,
-            detail.HasCurrentUserRequestChanges,
-            detail.HasCurrentUserApproval);
-    }
-
-    public static string BuildMyActivityText(MergedPullRequest pullRequest)
+    public static string BuildMyActivityText(IPullRequestReportItem pullRequest)
     {
         ArgumentNullException.ThrowIfNull(pullRequest);
 

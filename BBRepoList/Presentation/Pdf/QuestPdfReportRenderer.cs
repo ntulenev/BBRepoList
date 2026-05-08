@@ -41,7 +41,7 @@ public sealed class QuestPdfReportRenderer : IPdfReportRenderer
     }
 
     /// <inheritdoc />
-    public void RenderReport(RepositoryPdfReportData reportData)
+    public void RenderReport(RepositoryReportData reportData)
     {
         ArgumentNullException.ThrowIfNull(reportData);
 

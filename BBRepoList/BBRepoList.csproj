@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -48,5 +48,6 @@
 	<ItemGroup>
 	  <Content Include="foldergreengit_93069.ico" />
 	</ItemGroup>
+
 
 </Project>

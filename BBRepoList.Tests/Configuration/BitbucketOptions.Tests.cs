@@ -34,7 +34,7 @@ public sealed class BitbucketOptionsTests
         options.Pdf.OutputPath.Should().Be("bbrepolist-report.pdf");
         options.Html.Should().NotBeNull();
         options.Html.Enabled.Should().BeTrue();
-        options.Html.OutputPath.Should().Be("bbrepolist-open-pr-details.html");
+        options.Html.OutputPath.Should().Be("bbrepolist-pr-details.html");
         options.Html.OpenInBrowser.Should().BeFalse();
         options.PullRequestDetails.Should().NotBeNull();
         options.PullRequestDetails.IsEnabled.Should().BeFalse();

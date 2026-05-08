@@ -15,7 +15,7 @@ namespace BBRepoList.Presentation.Pdf;
 public sealed class PdfContentComposer : IPdfContentComposer
 {
     /// <inheritdoc />
-    public void ComposeContent(ColumnDescriptor column, RepositoryPdfReportData reportData)
+    public void ComposeContent(ColumnDescriptor column, RepositoryReportData reportData)
     {
         ArgumentNullException.ThrowIfNull(column);
         ArgumentNullException.ThrowIfNull(reportData);
@@ -23,7 +23,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
         column.Spacing(10);
 
         ComposeRepositoriesSection(column, reportData.Repositories, reportData.Workspace);
-        ComposeOpenPullRequestsSection(column, reportData.Repositories, reportData.Workspace);
+        ComposePullRequestSnapshotsSection(column, reportData.Repositories, reportData.Workspace);
         ComposeMergedPullRequestsSection(
             column,
             reportData.MergedPullRequests,
@@ -109,18 +109,18 @@ public sealed class PdfContentComposer : IPdfContentComposer
         });
     }
 
-    private static void ComposeOpenPullRequestsSection(
+    private static void ComposePullRequestSnapshotsSection(
         ColumnDescriptor column,
         IReadOnlyList<Repository> repositories,
         string workspace)
     {
-        var repositoriesWithOpenPullRequests = repositories
+        var repositoriesWithPullRequestSnapshots = repositories
             .Where(static repository => repository.OpenPullRequestsCount > 0)
             .OrderBy(static repository => repository.CreatedOn ?? DateTimeOffset.MaxValue)
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (repositoriesWithOpenPullRequests.Count == 0)
+        if (repositoriesWithPullRequestSnapshots.Count == 0)
         {
             return;
         }
@@ -145,9 +145,9 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open PRs");
             });
 
-            for (var i = 0; i < repositoriesWithOpenPullRequests.Count; i++)
+            for (var i = 0; i < repositoriesWithPullRequestSnapshots.Count; i++)
             {
-                var repository = repositoriesWithOpenPullRequests[i];
+                var repository = repositoriesWithPullRequestSnapshots[i];
                 var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
                 var openPrs = repository.OpenPullRequestsCount.ToString(CultureInfo.InvariantCulture);
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, repository.Slug);
@@ -560,48 +560,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
         });
     }
 
-    private static void ComposeMyActivityCell(IContainer container, PullRequestDetail detail)
-    {
-        if (!detail.HasCurrentUserActivity)
-        {
-            _ = container.Text("-");
-            return;
-        }
-
-        container.Text(text =>
-        {
-            var needsSeparator = false;
-
-            if (detail.HasCurrentUserDiscussion)
-            {
-                _ = text.Span("\U0001F4AC").FontColor(Colors.Blue.Darken2);
-                needsSeparator = true;
-            }
-
-            if (detail.HasCurrentUserRequestChanges)
-            {
-                if (needsSeparator)
-                {
-                    _ = text.Span(" ");
-                }
-
-                _ = text.Span("\u274C").FontColor(Colors.Red.Darken2);
-                needsSeparator = true;
-            }
-
-            if (detail.HasCurrentUserApproval)
-            {
-                if (needsSeparator)
-                {
-                    _ = text.Span(" ");
-                }
-
-                _ = text.Span("\u2705").FontColor(Colors.Green.Darken2);
-            }
-        });
-    }
-
-    private static void ComposeMyActivityCell(IContainer container, MergedPullRequest pullRequest)
+    private static void ComposeMyActivityCell(IContainer container, IPullRequestReportItem pullRequest)
     {
         if (!pullRequest.HasCurrentUserActivity)
         {

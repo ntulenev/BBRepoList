@@ -154,7 +154,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -165,7 +165,7 @@ public sealed class ConsoleAppTests
             .Callback(() => htmlCalls++);
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -233,7 +233,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 0
@@ -243,7 +243,7 @@ public sealed class ConsoleAppTests
             && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 0
@@ -288,7 +288,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Config Repo"
             && data.Repositories.Count == 0
@@ -298,7 +298,7 @@ public sealed class ConsoleAppTests
             && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Config Repo"
             && data.Repositories.Count == 0
@@ -332,7 +332,7 @@ public sealed class ConsoleAppTests
 
     [Fact(DisplayName = "RunAsync does not render open pull requests table when there are no open pull requests")]
     [Trait("Category", "Unit")]
-    public async Task RunAsyncWhenNoRepositoriesHaveOpenPullRequestsDoesNotRenderOpenPullRequestsTable()
+    public async Task RunAsyncWhenNoRepositoriesHavePullRequestSnapshotsDoesNotRenderPullRequestSnapshotsTable()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -341,7 +341,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -351,7 +351,7 @@ public sealed class ConsoleAppTests
             && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -401,7 +401,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -411,7 +411,7 @@ public sealed class ConsoleAppTests
             && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -432,7 +432,7 @@ public sealed class ConsoleAppTests
         repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 new BitbucketId("{uuid}"),
-                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                It.Is<IProgress<PullRequestRepositoryLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestRepositoryLoadProgress>)),
                 cts.Token))
             .Callback(() => detailsCalls++)
             .ReturnsAsync(
@@ -487,7 +487,7 @@ public sealed class ConsoleAppTests
 
     [Fact(DisplayName = "RunAsync renders recently merged pull requests table when enabled")]
     [Trait("Category", "Unit")]
-    public async Task RunAsyncWhenMergedPullRequestsAreEnabledRendersMergedPullRequestsAfterOpenPullRequests()
+    public async Task RunAsyncWhenMergedPullRequestsAreEnabledRendersMergedPullRequestsAfterPullRequestSnapshots()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -500,7 +500,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -509,7 +509,7 @@ public sealed class ConsoleAppTests
             && data.PullRequestDetails.Count == 0)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -528,7 +528,7 @@ public sealed class ConsoleAppTests
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 It.Is<DateTimeOffset>(mergedSince => mergedSince <= DateTimeOffset.UtcNow.AddDays(-2)),
                 new BitbucketId("{uuid}"),
-                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                It.Is<IProgress<PullRequestRepositoryLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestRepositoryLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -581,7 +581,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -591,7 +591,7 @@ public sealed class ConsoleAppTests
             && data.TtfrThresholdHours == 4)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 1
@@ -612,7 +612,7 @@ public sealed class ConsoleAppTests
         repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 new BitbucketId("{uuid}"),
-                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                It.Is<IProgress<PullRequestRepositoryLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestRepositoryLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -657,10 +657,10 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryReportData>()));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryReportData>()));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
@@ -674,7 +674,7 @@ public sealed class ConsoleAppTests
         repoService.Setup(s => s.GetOpenPullRequestDetailsAsync(
                 It.Is<IReadOnlyList<Repository>>(repos => repos.Count == 1),
                 new BitbucketId("{uuid}"),
-                It.Is<IProgress<PullRequestDetailsLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestDetailsLoadProgress>)),
+                It.Is<IProgress<PullRequestRepositoryLoadProgress>>(progress => progress != null && progress.GetType() == typeof(Progress<PullRequestRepositoryLoadProgress>)),
                 cts.Token))
             .ReturnsAsync(
             [
@@ -727,7 +727,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -736,7 +736,7 @@ public sealed class ConsoleAppTests
             && data.AbandonedMonthsThreshold == 12)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -787,7 +787,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -796,7 +796,7 @@ public sealed class ConsoleAppTests
             && data.AbandonedMonthsThreshold == 12)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -845,7 +845,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        htmlReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -854,7 +854,7 @@ public sealed class ConsoleAppTests
             && data.AbandonedMonthsThreshold == 12)));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryPdfReportData>(data =>
+        pdfReportRenderer.Setup(r => r.RenderReport(It.Is<RepositoryReportData>(data =>
             data.Workspace == "workspace"
             && data.FilterPhrase == "Repo"
             && data.Repositories.Count == 2
@@ -902,10 +902,10 @@ public sealed class ConsoleAppTests
             .ReturnsAsync(new BitbucketUser(new BitbucketId("{uuid}"), new UserName("Jane Doe")));
 
         var htmlReportRenderer = new Mock<IHtmlReportRenderer>(MockBehavior.Strict);
-        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        htmlReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryReportData>()));
 
         var pdfReportRenderer = new Mock<IPdfReportRenderer>(MockBehavior.Strict);
-        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryPdfReportData>()));
+        pdfReportRenderer.Setup(r => r.RenderReport(It.IsAny<RepositoryReportData>()));
 
         var repoService = new Mock<IRepoService>(MockBehavior.Strict);
         repoService.Setup(s => s.GetRepositoriesAsync(
@@ -988,7 +988,7 @@ public sealed class ConsoleAppTests
             Html = new HtmlOptions
             {
                 Enabled = true,
-                OutputPath = "bbrepolist-open-pr-details.html"
+                OutputPath = "bbrepolist-pr-details.html"
             },
             PullRequestDetails = new PullRequestDetailsOptions
             {

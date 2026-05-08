@@ -17,7 +17,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         """            <tr><td class="empty" colspan="12">No recently merged pull request details were collected for this run.</td></tr>""";
 
     /// <inheritdoc />
-    public string Compose(RepositoryPdfReportData reportData)
+    public string Compose(RepositoryReportData reportData)
     {
         ArgumentNullException.ThrowIfNull(reportData);
 
@@ -55,7 +55,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
             });
     }
 
-    private static string BuildRowsHtml(string rowTemplate, RepositoryPdfReportData reportData)
+    private static string BuildRowsHtml(string rowTemplate, RepositoryReportData reportData)
     {
         if (reportData.PullRequestDetails.Count == 0)
         {
@@ -80,7 +80,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         return html.ToString();
     }
 
-    private static string BuildMergedRowsHtml(string rowTemplate, RepositoryPdfReportData reportData)
+    private static string BuildMergedRowsHtml(string rowTemplate, RepositoryReportData reportData)
     {
         if (reportData.MergedPullRequests.Count == 0)
         {
@@ -104,7 +104,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         return html.ToString();
     }
 
-    private static string BuildMergedSectionHtml(RepositoryPdfReportData reportData)
+    private static string BuildMergedSectionHtml(RepositoryReportData reportData)
     {
         if (!reportData.LoadMergedPullRequests)
         {
@@ -113,48 +113,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
 
         var mergedRowsHtml = BuildMergedRowsHtml(HtmlTemplateLoader.LoadPullRequestRowTemplate(), reportData);
         return ApplyTemplate(
-            """
-                <h2 class="section-title">Recently merged pull requests <span>last __MERGED_DAYS__ days</span></h2>
-                <section class="table-wrap">
-                  <div class="scroll">
-                    <table class="pr-table">
-                      <thead>
-                        <tr>
-                          <th><button class="th-button" data-sort-column="0" data-sort-type="number" type="button"><span>#</span><span class="sort-indicator"></span></button></th>
-                          <th class="repo-column"><button class="th-button" data-sort-column="1" data-sort-type="text" type="button"><span>Repository</span><span class="sort-indicator"></span></button></th>
-                          <th class="pr-column"><button class="th-button" data-sort-column="2" data-sort-type="number" type="button"><span>PR</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="3" data-sort-type="text" type="button"><span>🧑‍💻</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="4" data-sort-type="number" type="button"><span>Desc. len</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="5" data-sort-type="number" type="button"><span>Open for</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="6" data-sort-type="number" type="button"><span>TTFR</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="7" data-sort-type="number" type="button"><span>Merged</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="8" data-sort-type="number" type="button"><span>💬</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="9" data-sort-type="number" type="button"><span>RC</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="10" data-sort-type="number" type="button"><span>AP</span><span class="sort-indicator"></span></button></th>
-                          <th><button class="th-button" data-sort-column="11" data-sort-type="text" type="button"><span>Me</span><span class="sort-indicator"></span></button></th>
-                        </tr>
-                        <tr class="filters">
-                          <th><input class="filter-input" data-filter-column="0" type="search" placeholder="#"></th>
-                          <th class="repo-column"><input class="filter-input" data-filter-column="1" type="search" placeholder="Repository"></th>
-                          <th class="pr-column"><input class="filter-input" data-filter-column="2" type="search" placeholder="PR"></th>
-                          <th><input class="filter-input" data-filter-column="3" type="search" placeholder="🧑‍💻"></th>
-                          <th><input class="filter-input" data-filter-column="4" type="search" placeholder="Len"></th>
-                          <th><input class="filter-input" data-filter-column="5" type="search" placeholder="Open for"></th>
-                          <th><input class="filter-input" data-filter-column="6" type="search" placeholder="TTFR"></th>
-                          <th><input class="filter-input" data-filter-column="7" type="search" placeholder="Merged"></th>
-                          <th><input class="filter-input" data-filter-column="8" type="search" placeholder="💬"></th>
-                          <th><input class="filter-input" data-filter-column="9" type="search" placeholder="RC"></th>
-                          <th><input class="filter-input" data-filter-column="10" type="search" placeholder="AP"></th>
-                          <th><input class="filter-input" data-filter-column="11" type="search" placeholder="Me"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-            __MERGED_ROWS__
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-            """,
+            HtmlTemplateLoader.LoadMergedPullRequestSectionTemplate(),
             new Dictionary<string, string>(2, StringComparer.Ordinal)
             {
                 ["__MERGED_DAYS__"] = reportData.MergedPullRequestsDays.ToString(CultureInfo.InvariantCulture),
@@ -174,53 +133,20 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         ArgumentNullException.ThrowIfNull(rowTemplate);
         ArgumentNullException.ThrowIfNull(detail);
 
-        var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, detail.RepositorySlug);
-        var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(workspace, detail.RepositorySlug, detail.PullRequestId);
-        var descriptionLength = detail.DescriptionText?.Length ?? 0;
-        var isDescriptionShort = detail.HasShortOrMissingDescription(minimalDescriptionTextLength);
         var openFor = detail.GetOpenDuration(generatedAt);
         var ttfr = detail.TimeToFirstResponse;
         var overdueTtfr = ttfr is null && openFor > TimeSpan.FromHours(ttfrThresholdHours);
         var lastActivityAge = detail.GetLastActivityAge(generatedAt);
-        var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(detail);
-        var requestChangesText = PresentationHelpers.FormatRequestChangesText(detail.RequestChangesCount);
-        var approvalsText = PresentationHelpers.FormatApprovalsText(detail.ApprovalsCount);
 
-        return ApplyTemplate(
+        return BuildRowHtml(
             rowTemplate,
-            new Dictionary<string, string>(28, StringComparer.Ordinal)
-            {
-                ["__INDEX__"] = index.ToString(CultureInfo.InvariantCulture),
-                ["__REPOSITORY_NAME__"] = HtmlPresentationHelpers.Encode(detail.RepositoryName),
-                ["__PULL_REQUEST_ID__"] = detail.PullRequestId.ToString(CultureInfo.InvariantCulture),
-                ["__TITLE__"] = HtmlPresentationHelpers.Encode(detail.Title),
-                ["__AUTHOR_DISPLAY_NAME_SORT__"] = HtmlPresentationHelpers.Encode(detail.AuthorDisplayName ?? "-"),
-                ["__AUTHOR_DISPLAY_NAME_DISPLAY__"] = BuildCompactAuthorDisplayName(detail.AuthorDisplayName),
-                ["__PULL_REQUEST_LINK__"] = BuildPullRequestLink(pullRequestUrl, detail.PullRequestId, detail.Title),
-                ["__REPOSITORY_LINK__"] = BuildLink(repositoryUrl, detail.RepositoryName),
-                ["__DESCRIPTION_LENGTH__"] = descriptionLength.ToString(CultureInfo.InvariantCulture),
-                ["__DESCRIPTION_SHORT_CLASS__"] = isDescriptionShort ? " class=\"description-short\"" : string.Empty,
-                ["__OPEN_FOR_SORT__"] = ((long)openFor.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__OPEN_FOR__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor)),
-                ["__TTFR_SORT__"] = (ttfr is null ? -1L : (long)ttfr.Value.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(
-                    ttfr is null ? (overdueTtfr ? "alert" : "-") : HtmlPresentationHelpers.FormatDuration(ttfr.Value)),
-                ["__TTFR__"] = BuildTtfrCell(ttfr, overdueTtfr),
-                ["__LAST_ACTIVITY_SORT__"] = (lastActivityAge is null ? -1L : (long)lastActivityAge.Value.TotalMinutes)
-                    .ToString(CultureInfo.InvariantCulture),
-                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(
-                    lastActivityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(lastActivityAge.Value)),
-                ["__COMMENTS_COUNT__"] = detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
-                ["__COMMENTS_TEXT__"] = detail.CommentsCount.ToString(CultureInfo.InvariantCulture),
-                ["__REQUEST_CHANGES_COUNT__"] = detail.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
-                ["__REQUEST_CHANGES_TEXT__"] = HtmlPresentationHelpers.Encode(requestChangesText),
-                ["__REQUEST_CHANGES_BADGE__"] = BuildBadge(requestChangesText, "rc"),
-                ["__APPROVALS_COUNT__"] = detail.ApprovalsCount.ToString(CultureInfo.InvariantCulture),
-                ["__APPROVALS_TEXT__"] = HtmlPresentationHelpers.Encode(approvalsText),
-                ["__APPROVALS_BADGE__"] = BuildBadge(approvalsText, "ap"),
-                ["__MY_ACTIVITY_TEXT__"] = HtmlPresentationHelpers.Encode(myActivityText),
-                ["__MY_ACTIVITY_BADGE__"] = BuildActivityBadge(detail)
-            });
+            workspace,
+            detail,
+            index,
+            openFor,
+            lastActivityAge,
+            overdueTtfr,
+            minimalDescriptionTextLength);
     }
 
     private static string BuildRowHtml(
@@ -234,13 +160,38 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         ArgumentNullException.ThrowIfNull(rowTemplate);
         ArgumentNullException.ThrowIfNull(pullRequest);
 
+        var openFor = pullRequest.GetOpenDuration();
+        var mergedAge = TimeSpan.FromTicks(Math.Max((generatedAt - pullRequest.MergedOn).Ticks, 0));
+
+        return BuildRowHtml(
+            rowTemplate,
+            workspace,
+            pullRequest,
+            index,
+            openFor,
+            mergedAge,
+            overdueTtfr: false,
+            minimalDescriptionTextLength);
+    }
+
+    private static string BuildRowHtml(
+        string rowTemplate,
+        string workspace,
+        IPullRequestReportItem pullRequest,
+        int index,
+        TimeSpan openFor,
+        TimeSpan? activityAge,
+        bool overdueTtfr,
+        int minimalDescriptionTextLength)
+    {
         var repositoryUrl = HtmlPresentationHelpers.BuildRepositoryBrowseUrl(workspace, pullRequest.RepositorySlug);
-        var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(workspace, pullRequest.RepositorySlug, pullRequest.PullRequestId);
+        var pullRequestUrl = HtmlPresentationHelpers.BuildPullRequestUrl(
+            workspace,
+            pullRequest.RepositorySlug,
+            pullRequest.PullRequestId);
         var descriptionLength = pullRequest.DescriptionText?.Length ?? 0;
         var isDescriptionShort = pullRequest.HasShortOrMissingDescription(minimalDescriptionTextLength);
-        var openFor = pullRequest.GetOpenDuration();
         var ttfr = pullRequest.TimeToFirstResponse;
-        var mergedAge = TimeSpan.FromTicks(Math.Max((generatedAt - pullRequest.MergedOn).Ticks, 0));
         var myActivityText = HtmlPresentationHelpers.BuildMyActivityText(pullRequest);
         var requestChangesText = PresentationHelpers.FormatRequestChangesText(pullRequest.RequestChangesCount);
         var approvalsText = PresentationHelpers.FormatApprovalsText(pullRequest.ApprovalsCount);
@@ -262,10 +213,13 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
                 ["__OPEN_FOR_SORT__"] = ((long)openFor.TotalMinutes).ToString(CultureInfo.InvariantCulture),
                 ["__OPEN_FOR__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(openFor)),
                 ["__TTFR_SORT__"] = (ttfr is null ? -1L : (long)ttfr.Value.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(ttfr is null ? "-" : HtmlPresentationHelpers.FormatDuration(ttfr.Value)),
-                ["__TTFR__"] = BuildTtfrCell(ttfr, overdueTtfr: false),
-                ["__LAST_ACTIVITY_SORT__"] = ((long)mergedAge.TotalMinutes).ToString(CultureInfo.InvariantCulture),
-                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(HtmlPresentationHelpers.FormatDuration(mergedAge)),
+                ["__TTFR_FILTER__"] = HtmlPresentationHelpers.Encode(
+                    ttfr is null ? (overdueTtfr ? "alert" : "-") : HtmlPresentationHelpers.FormatDuration(ttfr.Value)),
+                ["__TTFR__"] = BuildTtfrCell(ttfr, overdueTtfr),
+                ["__LAST_ACTIVITY_SORT__"] = (activityAge is null ? -1L : (long)activityAge.Value.TotalMinutes)
+                    .ToString(CultureInfo.InvariantCulture),
+                ["__LAST_ACTIVITY__"] = HtmlPresentationHelpers.Encode(
+                    activityAge is null ? "-" : HtmlPresentationHelpers.FormatDuration(activityAge.Value)),
                 ["__COMMENTS_COUNT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
                 ["__COMMENTS_TEXT__"] = pullRequest.CommentsCount.ToString(CultureInfo.InvariantCulture),
                 ["__REQUEST_CHANGES_COUNT__"] = pullRequest.RequestChangesCount.ToString(CultureInfo.InvariantCulture),
@@ -339,34 +293,7 @@ public sealed class HtmlContentComposer : IHtmlContentComposer
         return string.Join("<br />", lines.Select(HtmlPresentationHelpers.Encode));
     }
 
-    private static string BuildActivityBadge(PullRequestDetail detail)
-    {
-        if (!detail.HasCurrentUserActivity)
-        {
-            return "-";
-        }
-
-        var parts = new List<string>(3);
-
-        if (detail.HasCurrentUserDiscussion)
-        {
-            parts.Add("<span class=\"activity-icon\" title=\"Comment\">&#128172;</span>");
-        }
-
-        if (detail.HasCurrentUserRequestChanges)
-        {
-            parts.Add("<span class=\"activity-icon\" title=\"Request changes\">&#10060;</span>");
-        }
-
-        if (detail.HasCurrentUserApproval)
-        {
-            parts.Add("<span class=\"activity-icon\" title=\"Approval\">&#9989;</span>");
-        }
-
-        return $"<span class=\"badge activity\">{string.Join(" ", parts)}</span>";
-    }
-
-    private static string BuildActivityBadge(MergedPullRequest pullRequest)
+    private static string BuildActivityBadge(IPullRequestReportItem pullRequest)
     {
         if (!pullRequest.HasCurrentUserActivity)
         {

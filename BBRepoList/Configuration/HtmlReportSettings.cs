@@ -7,7 +7,7 @@ namespace BBRepoList.Configuration;
 /// </summary>
 public sealed record HtmlReportSettings
 {
-    private const string DEFAULT_OUTPUT_PATH = "bbrepolist-open-pr-details.html";
+    private const string DEFAULT_OUTPUT_PATH = "bbrepolist-pr-details.html";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HtmlReportSettings"/> class.

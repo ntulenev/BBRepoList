@@ -21,21 +21,25 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     /// </summary>
     /// <param name="transport">Bitbucket transport instance.</param>
     /// <param name="jsonParser">Bitbucket JSON parser.</param>
+    /// <param name="activityAnalyzer">Pull request activity analyzer.</param>
     /// <param name="cache">Pull request details cache.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public BitbucketPRApiClient(
         IBitbucketTransport transport,
         IBitbucketJsonParser jsonParser,
+        IPullRequestActivityAnalyzer activityAnalyzer,
         IPullRequestDetailsCache cache,
         IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
         ArgumentNullException.ThrowIfNull(jsonParser);
+        ArgumentNullException.ThrowIfNull(activityAnalyzer);
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(options);
 
         _transport = transport;
         _jsonParser = jsonParser;
+        _activityAnalyzer = activityAnalyzer;
         _cache = cache;
         _options = options.Value;
     }
@@ -76,7 +80,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        if (!repository.CanLoadOpenPullRequestDetails)
+        if (!repository.CanLoadPullRequests)
         {
             return [];
         }
@@ -93,7 +97,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                 .GroupBy(static entry => entry.PullRequestId)
                 .ToDictionary(static group => group.Key, static group => group.Last());
 
-            var openPullRequests = await GetOpenPullRequestsAsync(
+            var openPullRequests = await GetPullRequestSnapshotsAsync(
                 repositorySlug,
                 currentUserId,
                 cancellationToken).ConfigureAwait(false);
@@ -129,7 +133,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     repositorySlug,
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
-                var activitySummary = CreateActivitySummary(activities, pullRequest, currentUserId);
+                var activitySummary = _activityAnalyzer.CreateSummary(activities, pullRequest, currentUserId);
 
                 details.Add(CreatePullRequestDetail(repository, pullRequest, activitySummary));
                 updatedCacheEntries.Add(new PullRequestDetailsCacheEntry(
@@ -162,7 +166,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        if (!repository.CanLoadOpenPullRequestDetails)
+        if (!repository.CanLoadPullRequests)
         {
             return [];
         }
@@ -213,12 +217,12 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                         return pullRequests;
                     }
 
-                    var pullRequest = CreateOpenPullRequest(pullRequestDto, currentUserId);
+                    var pullRequest = CreatePullRequestSnapshot(pullRequestDto, currentUserId);
                     var activities = await GetPullRequestActivitiesAsync(
                         repositorySlug,
                         pullRequest.Id,
                         cancellationToken).ConfigureAwait(false);
-                    var activitySummary = CreateActivitySummary(activities, pullRequest, currentUserId);
+                    var activitySummary = _activityAnalyzer.CreateSummary(activities, pullRequest, currentUserId);
 
                     pullRequests.Add(CreateMergedPullRequest(repository, pullRequest, pullRequestDto.UpdatedOn.Value, activitySummary));
                 }
@@ -234,7 +238,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return pullRequests;
     }
 
-    private async Task<IReadOnlyList<OpenPullRequest>> GetOpenPullRequestsAsync(
+    private async Task<IReadOnlyList<PullRequestSnapshot>> GetPullRequestSnapshotsAsync(
         string repositorySlug,
         BitbucketId currentUserId,
         CancellationToken cancellationToken)
@@ -261,7 +265,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
             $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen={_options.PageLen}&fields={fields}",
             UriKind.Relative);
 
-        var pullRequests = new List<OpenPullRequest>();
+        var pullRequests = new List<PullRequestSnapshot>();
 
         while (url is not null)
         {
@@ -278,7 +282,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
-                pullRequests.Add(CreateOpenPullRequest(pullRequestDto, currentUserId));
+                pullRequests.Add(CreatePullRequestSnapshot(pullRequestDto, currentUserId));
             }
 
             url = page.Next;
@@ -287,7 +291,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return pullRequests;
     }
 
-    private OpenPullRequest CreateOpenPullRequest(PullRequestDto pullRequestDto, BitbucketId currentUserId)
+    private PullRequestSnapshot CreatePullRequestSnapshot(PullRequestDto pullRequestDto, BitbucketId currentUserId)
     {
         var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
             ? parsedAuthorId
@@ -298,7 +302,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
             GetPullRequestReviewState(pullRequestDto.Participants, currentUserId);
 
-        return new OpenPullRequest(
+        return new PullRequestSnapshot(
             pullRequestDto.Id!.Value,
             string.IsNullOrWhiteSpace(pullRequestDto.Title)
                 ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
@@ -407,36 +411,9 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         return (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval);
     }
 
-    private static PullRequestActivitySummary CreateActivitySummary(
-        IReadOnlyList<PullRequestActivityEntry> activities,
-        OpenPullRequest pullRequest,
-        BitbucketId currentUserId)
-    {
-        var firstNonAuthorActivityOn = activities
-            .Where(activity => pullRequest.AuthorId is null
-                               || activity.ActorId != pullRequest.AuthorId.Value)
-            .OrderBy(static activity => activity.HappenedOn)
-            .Select(static activity => (DateTimeOffset?)activity.HappenedOn)
-            .FirstOrDefault();
-        var lastActivityOn = activities
-            .OrderByDescending(static activity => activity.HappenedOn)
-            .Select(static activity => (DateTimeOffset?)activity.HappenedOn)
-            .FirstOrDefault();
-        var hasCurrentUserDiscussion = activities.Any(activity =>
-            activity.IsComment
-            && activity.ActorId == currentUserId);
-        var commentsCount = activities.Count(static activity => activity.IsComment);
-
-        return new PullRequestActivitySummary(
-            firstNonAuthorActivityOn,
-            lastActivityOn,
-            hasCurrentUserDiscussion,
-            commentsCount);
-    }
-
     private static PullRequestDetail CreatePullRequestDetail(
         Repository repository,
-        OpenPullRequest pullRequest,
+        PullRequestSnapshot pullRequest,
         PullRequestActivitySummary activitySummary) =>
         new(
             repository,
@@ -457,7 +434,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
     private static MergedPullRequest CreateMergedPullRequest(
         Repository repository,
-        OpenPullRequest pullRequest,
+        PullRequestSnapshot pullRequest,
         DateTimeOffset mergedOn,
         PullRequestActivitySummary activitySummary) =>
         new(
@@ -480,7 +457,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
     private static bool TryCreateDetailFromCache(
         Repository repository,
-        OpenPullRequest pullRequest,
+        PullRequestSnapshot pullRequest,
         Dictionary<int, PullRequestDetailsCacheEntry> cacheEntriesByPullRequestId,
         out PullRequestDetail detail,
         out PullRequestDetailsCacheEntry cacheEntry)
@@ -542,12 +519,8 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
     private readonly IBitbucketTransport _transport;
     private readonly IBitbucketJsonParser _jsonParser;
+    private readonly IPullRequestActivityAnalyzer _activityAnalyzer;
     private readonly IPullRequestDetailsCache _cache;
     private readonly BitbucketOptions _options;
 
-    private sealed record PullRequestActivitySummary(
-        DateTimeOffset? FirstNonAuthorActivityOn,
-        DateTimeOffset? LastActivityOn,
-        bool HasCurrentUserDiscussion,
-        int CommentsCount);
 }

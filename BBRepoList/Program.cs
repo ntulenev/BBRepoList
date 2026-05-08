@@ -48,6 +48,7 @@ builder.Services.AddSingleton<IBitbucketTelemetryService, BitbucketTelemetryServ
 builder.Services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
 builder.Services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
 builder.Services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
+builder.Services.AddTransient<IPullRequestActivityAnalyzer, PullRequestActivityAnalyzer>();
 builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
 builder.Services.AddTransient<IRepoService, RepositoryService>();
 builder.Services.AddTransient<IHtmlContentComposer, HtmlContentComposer>();
