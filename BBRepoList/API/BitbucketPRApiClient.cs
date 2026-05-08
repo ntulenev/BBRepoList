@@ -1,7 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
-
 using BBRepoList.Abstractions;
 using BBRepoList.Configuration;
 using BBRepoList.Models;
@@ -22,24 +18,28 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     /// <param name="transport">Bitbucket transport instance.</param>
     /// <param name="jsonParser">Bitbucket JSON parser.</param>
     /// <param name="activityAnalyzer">Pull request activity analyzer.</param>
+    /// <param name="snapshotMapper">Pull request snapshot mapper.</param>
     /// <param name="cache">Pull request details cache.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public BitbucketPRApiClient(
         IBitbucketTransport transport,
         IBitbucketJsonParser jsonParser,
         IPullRequestActivityAnalyzer activityAnalyzer,
+        IPullRequestSnapshotMapper snapshotMapper,
         IPullRequestDetailsCache cache,
         IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
         ArgumentNullException.ThrowIfNull(jsonParser);
         ArgumentNullException.ThrowIfNull(activityAnalyzer);
+        ArgumentNullException.ThrowIfNull(snapshotMapper);
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(options);
 
         _transport = transport;
         _jsonParser = jsonParser;
         _activityAnalyzer = activityAnalyzer;
+        _snapshotMapper = snapshotMapper;
         _cache = cache;
         _options = options.Value;
     }
@@ -217,7 +217,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                         return pullRequests;
                     }
 
-                    var pullRequest = CreatePullRequestSnapshot(pullRequestDto, currentUserId);
+                    var pullRequest = _snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId);
                     var activities = await GetPullRequestActivitiesAsync(
                         repositorySlug,
                         pullRequest.Id,
@@ -282,40 +282,13 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
-                pullRequests.Add(CreatePullRequestSnapshot(pullRequestDto, currentUserId));
+                pullRequests.Add(_snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId));
             }
 
             url = page.Next;
         }
 
         return pullRequests;
-    }
-
-    private PullRequestSnapshot CreatePullRequestSnapshot(PullRequestDto pullRequestDto, BitbucketId currentUserId)
-    {
-        var authorId = BitbucketId.TryCreate(pullRequestDto.Author?.Uuid, out var parsedAuthorId)
-            ? parsedAuthorId
-            : (BitbucketId?)null;
-        var descriptionText = string.IsNullOrWhiteSpace(pullRequestDto.Description)
-            ? pullRequestDto.Summary?.Raw
-            : pullRequestDto.Description;
-        var (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval) =
-            GetPullRequestReviewState(pullRequestDto.Participants, currentUserId);
-
-        return new PullRequestSnapshot(
-            pullRequestDto.Id!.Value,
-            string.IsNullOrWhiteSpace(pullRequestDto.Title)
-                ? $"PR-{pullRequestDto.Id.Value.ToString(CultureInfo.InvariantCulture)}"
-                : pullRequestDto.Title.Trim(),
-            pullRequestDto.CreatedOn!.Value,
-            descriptionText,
-            authorId,
-            pullRequestDto.Author?.DisplayName,
-            requestChangesCount,
-            hasCurrentUserRequestChanges,
-            approvalsCount,
-            hasCurrentUserApproval,
-            BuildPullRequestFingerprint(pullRequestDto));
     }
 
     private async Task<IReadOnlyList<PullRequestActivityEntry>> GetPullRequestActivitiesAsync(
@@ -371,44 +344,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         }
 
         return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
-    }
-
-    private (int RequestChangesCount, bool HasCurrentUserRequestChanges, int ApprovalsCount, bool HasCurrentUserApproval)
-        GetPullRequestReviewState(
-        ICollection<PullRequestParticipantDto>? participants,
-        BitbucketId currentUserId)
-    {
-        if (participants is null || participants.Count == 0)
-        {
-            return default;
-        }
-
-        var requestChangesCount = 0;
-        var hasCurrentUserRequestChanges = false;
-        var approvalsCount = 0;
-        var hasCurrentUserApproval = false;
-
-        foreach (var participant in participants)
-        {
-            if (!BitbucketId.TryCreate(participant.User?.Uuid, out var participantId))
-            {
-                continue;
-            }
-
-            if (_jsonParser.IsRequestChangesState(participant.State))
-            {
-                requestChangesCount++;
-                hasCurrentUserRequestChanges |= participantId == currentUserId;
-            }
-
-            if (_jsonParser.IsApprovalState(participant))
-            {
-                approvalsCount++;
-                hasCurrentUserApproval |= participantId == currentUserId;
-            }
-        }
-
-        return (requestChangesCount, hasCurrentUserRequestChanges, approvalsCount, hasCurrentUserApproval);
     }
 
     private static PullRequestDetail CreatePullRequestDetail(
@@ -489,37 +424,10 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         }
     }
 
-    private static string BuildPullRequestFingerprint(PullRequestDto pullRequest)
-    {
-        ArgumentNullException.ThrowIfNull(pullRequest);
-
-        var participantReviewState = string.Join(
-            ';',
-            (pullRequest.Participants ?? [])
-                .Select(static participant => string.Join(
-                    '|',
-                    participant.User?.Uuid?.Trim() ?? string.Empty,
-                    participant.State?.Trim() ?? string.Empty,
-                    participant.Approved == true ? "1" : "0"))
-                .OrderBy(static value => value, StringComparer.Ordinal));
-
-        var rawFingerprint = string.Join(
-            '\n',
-            (pullRequest.Id ?? 0).ToString(CultureInfo.InvariantCulture),
-            pullRequest.UpdatedOn?.UtcDateTime.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
-            pullRequest.State?.Trim() ?? string.Empty,
-            pullRequest.Source?.Commit?.Hash?.Trim() ?? string.Empty,
-            pullRequest.CommentCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            pullRequest.TaskCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            participantReviewState);
-
-        var fingerprintBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawFingerprint));
-        return Convert.ToHexString(fingerprintBytes);
-    }
-
     private readonly IBitbucketTransport _transport;
     private readonly IBitbucketJsonParser _jsonParser;
     private readonly IPullRequestActivityAnalyzer _activityAnalyzer;
+    private readonly IPullRequestSnapshotMapper _snapshotMapper;
     private readonly IPullRequestDetailsCache _cache;
     private readonly BitbucketOptions _options;
 

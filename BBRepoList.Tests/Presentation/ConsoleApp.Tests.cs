@@ -30,7 +30,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -49,7 +49,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -68,7 +68,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -87,7 +87,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -107,7 +107,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, telemetryService, options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, telemetryService, options);
 
         // Assert
         act.Should()
@@ -126,7 +126,7 @@ public sealed class ConsoleAppTests
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, repoService, CreateTelemetryService(), options);
+        Action act = () => _ = new ConsoleApp(api, htmlReportRenderer, pdfReportRenderer, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService, CreateTelemetryService(), options);
 
         // Assert
         act.Should()
@@ -192,7 +192,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -261,7 +261,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchMode: RepositorySearchMode.StartWith));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         await RunWithTestConsoleAsync(async console =>
         {
@@ -316,7 +316,7 @@ public sealed class ConsoleAppTests
             .ReturnsAsync([]);
 
         var options = Options.Create(CreateOptions(repositorySearchPhrase: "Config Repo"));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async _ =>
         {
@@ -372,7 +372,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions());
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -455,7 +455,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -547,7 +547,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(mergedPullRequestsEnabled: true, mergedPullRequestsDays: 2));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -629,7 +629,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(prDetailsEnabled: true, ttfrThresholdHours: 4));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -695,7 +695,7 @@ public sealed class ConsoleAppTests
             prDetailsEnabled: true,
             ttfrThresholdHours: 4,
             minimalDescriptionTextLength: 15));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -756,7 +756,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -816,7 +816,7 @@ public sealed class ConsoleAppTests
             ]);
 
         var options = Options.Create(CreateOptions(abandonedMonthsThreshold: 12));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -876,7 +876,7 @@ public sealed class ConsoleAppTests
         var options = Options.Create(CreateOptions(
             abandonedMonthsThreshold: 12,
             loadAbandonedRepositoriesStatistics: false));
-        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, repoService.Object, CreateTelemetryService(), options);
+        var app = new ConsoleApp(api.Object, htmlReportRenderer.Object, pdfReportRenderer.Object, CreateReportDataFactory(options), CreateConsoleReportRenderer(options), repoService.Object, CreateTelemetryService(), options);
 
         var output = await RunWithTestConsoleAsync(async console =>
         {
@@ -927,6 +927,8 @@ public sealed class ConsoleAppTests
             api.Object,
             htmlReportRenderer.Object,
             pdfReportRenderer.Object,
+            CreateReportDataFactory(options),
+            CreateConsoleReportRenderer(options),
             repoService.Object,
             CreateTelemetryService(telemetrySnapshot),
             options);
@@ -1021,6 +1023,12 @@ public sealed class ConsoleAppTests
         return telemetryService.Object;
     }
 
+
+
+    private static ConsoleReportRenderer CreateConsoleReportRenderer(IOptions<BitbucketOptions> options) =>
+        new(options);
+    private static RepositoryReportDataFactory CreateReportDataFactory(IOptions<BitbucketOptions> options) =>
+        new(options);
     private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
     {
         if (to <= from)

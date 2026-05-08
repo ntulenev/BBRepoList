@@ -26,11 +26,12 @@ public sealed class BitbucketPRApiClientTests
         IBitbucketTransport transport = null!;
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var snapshotMapper = CreateSnapshotMapper(parser);
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport, parser, analyzer, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport, parser, analyzer, snapshotMapper, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -44,11 +45,12 @@ public sealed class BitbucketPRApiClientTests
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         IBitbucketJsonParser parser = null!;
         var analyzer = new PullRequestActivityAnalyzer();
+        var snapshotMapper = CreateSnapshotMapper(new BitbucketJsonParser());
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -62,11 +64,12 @@ public sealed class BitbucketPRApiClientTests
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var snapshotMapper = CreateSnapshotMapper(parser);
         IPullRequestDetailsCache cache = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -80,11 +83,12 @@ public sealed class BitbucketPRApiClientTests
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var snapshotMapper = CreateSnapshotMapper(parser);
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -652,8 +656,12 @@ public sealed class BitbucketPRApiClientTests
             transport,
             new BitbucketJsonParser(),
             new PullRequestActivityAnalyzer(),
+            CreateSnapshotMapper(new BitbucketJsonParser()),
             cache,
             Options.Create(CreateOptions()));
+
+    private static PullRequestSnapshotMapper CreateSnapshotMapper(IBitbucketJsonParser parser) =>
+        new(parser, new PullRequestFingerprintBuilder());
 
     private static Mock<IBitbucketTransport> CreateTransportForPullRequestDetails(
         string repositorySlug,
