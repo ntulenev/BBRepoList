@@ -1,21 +1,10 @@
-using BBRepoList.Abstractions;
-using BBRepoList.API;
-using BBRepoList.API.Helpers;
-using BBRepoList.Caching;
-using BBRepoList.Configuration;
-using BBRepoList.Logic;
+using BBRepoList;
 using BBRepoList.Presentation;
-using BBRepoList.Presentation.Html;
-using BBRepoList.Presentation.Pdf;
-using BBRepoList.Telemetry;
-using BBRepoList.Transport;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 
-using System.Net.Http.Headers;
 using System.Text;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -25,44 +14,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
 
-builder.Services
-    .AddOptions<BitbucketOptions>()
-    .Bind(builder.Configuration.GetSection("Bitbucket"))
-    .ValidateDataAnnotations()
-    .ValidateOnStart();
-
-builder.Services.AddTransient<IBitbucketAuthApiClient, BitbucketAuthApiClient>();
-
-builder.Services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, http) =>
-{
-    var settings = sp.GetRequiredService<IOptions<BitbucketOptions>>().Value;
-    var authApi = sp.GetRequiredService<IBitbucketAuthApiClient>();
-
-    http.BaseAddress = new Uri(settings.BaseUrl.ToString().TrimEnd('/') + "/");
-    http.DefaultRequestHeaders.Authorization = authApi.BuildAuthHeader(settings.AuthEmail, settings.AuthApiToken);
-    http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-});
-
-builder.Services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
-builder.Services.AddSingleton<IBitbucketTelemetryService, BitbucketTelemetryService>();
-builder.Services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
-builder.Services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
-builder.Services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
-builder.Services.AddTransient<IPullRequestActivityAnalyzer, PullRequestActivityAnalyzer>();
-builder.Services.AddTransient<IPullRequestFingerprintBuilder, PullRequestFingerprintBuilder>();
-builder.Services.AddTransient<IPullRequestSnapshotMapper, PullRequestSnapshotMapper>();
-builder.Services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
-builder.Services.AddTransient<IRepoService, RepositoryService>();
-builder.Services.AddTransient<IRepositoryReportDataFactory, RepositoryReportDataFactory>();
-builder.Services.AddTransient<IConsoleReportRenderer, ConsoleReportRenderer>();
-builder.Services.AddTransient<IHtmlContentComposer, HtmlContentComposer>();
-builder.Services.AddTransient<IHtmlReportFileStore, HtmlReportFileStore>();
-builder.Services.AddTransient<IHtmlReportLauncher, HtmlReportLauncher>();
-builder.Services.AddTransient<IHtmlReportRenderer, HtmlReportRenderer>();
-builder.Services.AddTransient<IPdfContentComposer, PdfContentComposer>();
-builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
-builder.Services.AddTransient<IPdfReportRenderer, QuestPdfReportRenderer>();
-builder.Services.AddTransient<ConsoleApp>();
+builder.Services.AddApplicationServices(builder.Configuration);
 
 using var host = builder.Build();
 

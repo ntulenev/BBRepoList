@@ -58,11 +58,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         try
         {
-            var escapedSlug = Uri.EscapeDataString(repositorySlug);
-            var url = new Uri(
-                $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen=1&fields=size",
-                UriKind.Relative);
-
+            var url = CreateOpenPullRequestCountUrl(repositorySlug);
             var summary = await _transport.GetAsync<PullRequestPageSummaryDto>(url, cancellationToken).ConfigureAwait(false);
             repository.UpdateOpenPullRequestsCount(summary?.Size ?? 0);
         }
@@ -176,59 +172,36 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         try
         {
-            var escapedSlug = Uri.EscapeDataString(repositorySlug);
-            var fields = Uri.EscapeDataString(
-                "values.id," +
-                "values.title," +
-                "values.created_on," +
-                "values.updated_on," +
-                "values.description," +
-                "values.summary.raw," +
-                "values.author.uuid," +
-                "values.author.display_name," +
-                "values.participants.user.uuid," +
-                "values.participants.state," +
-                "values.participants.approved," +
-                "next");
-            var url = new Uri(
-                $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=MERGED&pagelen={_options.PageLen}&sort=-updated_on&fields={fields}",
-                UriKind.Relative);
+            var url = CreateMergedPullRequestsUrl(repositorySlug);
 
-            while (url is not null)
-            {
-                var page = await _transport.GetAsync<PullRequestPageDto>(url, cancellationToken).ConfigureAwait(false);
-                if (page is null)
-                {
-                    break;
-                }
-
-                foreach (var pullRequestDto in page.Values ?? [])
+            await ForEachPullRequestDtoAsync(
+                url,
+                async (pullRequestDto, token) =>
                 {
                     if (pullRequestDto.Id is null
                         || pullRequestDto.Id <= 0
                         || pullRequestDto.CreatedOn is null
                         || pullRequestDto.UpdatedOn is null)
                     {
-                        continue;
+                        return true;
                     }
 
                     if (pullRequestDto.UpdatedOn.Value < mergedSince)
                     {
-                        return pullRequests;
+                        return false;
                     }
 
                     var pullRequest = _snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId);
                     var activities = await GetPullRequestActivitiesAsync(
                         repositorySlug,
                         pullRequest.Id,
-                        cancellationToken).ConfigureAwait(false);
+                        token).ConfigureAwait(false);
                     var activitySummary = _activityAnalyzer.CreateSummary(activities, pullRequest, currentUserId);
 
                     pullRequests.Add(CreateMergedPullRequest(repository, pullRequest, pullRequestDto.UpdatedOn.Value, activitySummary));
-                }
-
-                url = page.Next;
-            }
+                    return true;
+                },
+                cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException)
         {
@@ -243,29 +216,35 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         BitbucketId currentUserId,
         CancellationToken cancellationToken)
     {
-        var escapedSlug = Uri.EscapeDataString(repositorySlug);
-        var fields = Uri.EscapeDataString(
-            "values.id," +
-            "values.title," +
-            "values.created_on," +
-            "values.updated_on," +
-            "values.state," +
-            "values.description," +
-            "values.summary.raw," +
-            "values.author.uuid," +
-            "values.author.display_name," +
-            "values.source.commit.hash," +
-            "values.comment_count," +
-            "values.task_count," +
-            "values.participants.user.uuid," +
-            "values.participants.state," +
-            "values.participants.approved," +
-            "next");
-        var url = new Uri(
-            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests?state=OPEN&pagelen={_options.PageLen}&fields={fields}",
-            UriKind.Relative);
-
+        var url = CreateOpenPullRequestSnapshotsUrl(repositorySlug);
         var pullRequests = new List<PullRequestSnapshot>();
+
+        await ForEachPullRequestDtoAsync(
+            url,
+            (pullRequestDto, _) =>
+            {
+                if (pullRequestDto.Id is null || pullRequestDto.Id <= 0 || pullRequestDto.CreatedOn is null)
+                {
+                    return ValueTask.FromResult(true);
+                }
+
+                pullRequests.Add(_snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId));
+                return ValueTask.FromResult(true);
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return pullRequests;
+    }
+
+    private async Task ForEachPullRequestDtoAsync(
+        Uri initialUrl,
+        Func<PullRequestDto, CancellationToken, ValueTask<bool>> handlePullRequest,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(initialUrl);
+        ArgumentNullException.ThrowIfNull(handlePullRequest);
+
+        var url = initialUrl;
 
         while (url is not null)
         {
@@ -277,18 +256,14 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
             foreach (var pullRequestDto in page.Values ?? [])
             {
-                if (pullRequestDto.Id is null || pullRequestDto.Id <= 0 || pullRequestDto.CreatedOn is null)
+                if (!await handlePullRequest(pullRequestDto, cancellationToken).ConfigureAwait(false))
                 {
-                    continue;
+                    return;
                 }
-
-                pullRequests.Add(_snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId));
             }
 
             url = page.Next;
         }
-
-        return pullRequests;
     }
 
     private async Task<IReadOnlyList<PullRequestActivityEntry>> GetPullRequestActivitiesAsync(
@@ -296,23 +271,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         int pullRequestId,
         CancellationToken cancellationToken)
     {
-        var escapedSlug = Uri.EscapeDataString(repositorySlug);
-        var fields = Uri.EscapeDataString(
-            "values.actor.uuid," +
-            "values.user.uuid," +
-            "values.date," +
-            "values.created_on," +
-            "values.updated_on," +
-            "values.comment," +
-            "values.approval," +
-            "values.request_changes," +
-            "values.changes_requested," +
-            "values.update," +
-            "next");
-        var url = new Uri(
-            $"repositories/{_options.Workspace}/{escapedSlug}/pullrequests/{pullRequestId}/activity?pagelen={_options.PageLen}&fields={fields}",
-            UriKind.Relative);
-
+        var url = CreatePullRequestActivitiesUrl(repositorySlug, pullRequestId);
         var activities = new List<PullRequestActivityEntry>();
 
         while (url is not null)
@@ -345,6 +304,30 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
     }
+
+    private Uri CreateOpenPullRequestCountUrl(string repositorySlug) =>
+        new(
+            $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests?state=OPEN&pagelen=1&fields=size",
+            UriKind.Relative);
+
+    private Uri CreateMergedPullRequestsUrl(string repositorySlug) =>
+        new(
+            $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests?state=MERGED&pagelen={_options.PageLen}&sort=-updated_on&fields={EscapeFields(MERGED_PULL_REQUEST_FIELDS)}",
+            UriKind.Relative);
+
+    private Uri CreateOpenPullRequestSnapshotsUrl(string repositorySlug) =>
+        new(
+            $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests?state=OPEN&pagelen={_options.PageLen}&fields={EscapeFields(OPEN_PULL_REQUEST_SNAPSHOT_FIELDS)}",
+            UriKind.Relative);
+
+    private Uri CreatePullRequestActivitiesUrl(string repositorySlug, int pullRequestId) =>
+        new(
+            $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests/{pullRequestId}/activity?pagelen={_options.PageLen}&fields={EscapeFields(PULL_REQUEST_ACTIVITY_FIELDS)}",
+            UriKind.Relative);
+
+    private static string EscapeRepositorySlug(string repositorySlug) => Uri.EscapeDataString(repositorySlug);
+
+    private static string EscapeFields(string fields) => Uri.EscapeDataString(fields);
 
     private static PullRequestDetail CreatePullRequestDetail(
         Repository repository,
@@ -431,4 +414,48 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     private readonly IPullRequestDetailsCache _cache;
     private readonly BitbucketOptions _options;
 
+    private const string MERGED_PULL_REQUEST_FIELDS =
+        "values.id," +
+        "values.title," +
+        "values.created_on," +
+        "values.updated_on," +
+        "values.description," +
+        "values.summary.raw," +
+        "values.author.uuid," +
+        "values.author.display_name," +
+        "values.participants.user.uuid," +
+        "values.participants.state," +
+        "values.participants.approved," +
+        "next";
+
+    private const string OPEN_PULL_REQUEST_SNAPSHOT_FIELDS =
+        "values.id," +
+        "values.title," +
+        "values.created_on," +
+        "values.updated_on," +
+        "values.state," +
+        "values.description," +
+        "values.summary.raw," +
+        "values.author.uuid," +
+        "values.author.display_name," +
+        "values.source.commit.hash," +
+        "values.comment_count," +
+        "values.task_count," +
+        "values.participants.user.uuid," +
+        "values.participants.state," +
+        "values.participants.approved," +
+        "next";
+
+    private const string PULL_REQUEST_ACTIVITY_FIELDS =
+        "values.actor.uuid," +
+        "values.user.uuid," +
+        "values.date," +
+        "values.created_on," +
+        "values.updated_on," +
+        "values.comment," +
+        "values.approval," +
+        "values.request_changes," +
+        "values.changes_requested," +
+        "values.update," +
+        "next";
 }

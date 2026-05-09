@@ -94,8 +94,15 @@ public sealed class ConsoleApp
         _consoleReportRenderer.RenderMergedPullRequestsTableIfAny(mergedPullRequests);
         _consoleReportRenderer.RenderPullRequestDetailsReportIfAny(pullRequestDetails);
         _consoleReportRenderer.RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
-        RenderHtmlReport(sortedRepositories, mergedPullRequests, pullRequestDetails, filterPattern);
-        RenderPdfReport(sortedRepositories, mergedPullRequests, pullRequestDetails, filterPattern);
+
+        var reportData = _reportDataFactory.Create(
+            sortedRepositories,
+            mergedPullRequests,
+            pullRequestDetails,
+            filterPattern,
+            DateTimeOffset.Now);
+
+        RenderReports(reportData);
         _consoleReportRenderer.RenderTelemetrySummary(_telemetryService.GetSnapshot());
         executionTime.Stop();
         ShowDone(executionTime.Elapsed);
@@ -287,36 +294,11 @@ public sealed class ConsoleApp
         AnsiConsole.MarkupLine($"[bold]Results:[/] [green]{resultCount}[/] (sorted by name)\n");
     }
 
-    private void RenderPdfReport(
-        List<Repository> repositories,
-        IReadOnlyList<MergedPullRequest> mergedPullRequests,
-        IReadOnlyList<PullRequestDetail> pullRequestDetails,
-        FilterPattern filterPattern)
+    private void RenderReports(RepositoryReportData reportData)
     {
-        var reportData = _reportDataFactory.Create(
-            repositories,
-            mergedPullRequests,
-            pullRequestDetails,
-            filterPattern,
-            DateTimeOffset.Now);
-
-        _pdfReportRenderer.RenderReport(reportData);
-    }
-
-    private void RenderHtmlReport(
-        List<Repository> repositories,
-        IReadOnlyList<MergedPullRequest> mergedPullRequests,
-        IReadOnlyList<PullRequestDetail> pullRequestDetails,
-        FilterPattern filterPattern)
-    {
-        var reportData = _reportDataFactory.Create(
-            repositories,
-            mergedPullRequests,
-            pullRequestDetails,
-            filterPattern,
-            DateTimeOffset.Now);
-
+        ArgumentNullException.ThrowIfNull(reportData);
         _htmlReportRenderer.RenderReport(reportData);
+        _pdfReportRenderer.RenderReport(reportData);
     }
 
     private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;

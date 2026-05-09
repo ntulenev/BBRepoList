@@ -76,13 +76,9 @@ public sealed class RepositoryService : IRepoService
 
         var prStatisticsLoaded = 0;
 
-        await Parallel.ForEachAsync(
-            Enumerable.Range(0, matchedRepositories.Count),
-            new ParallelOptions
-            {
-                MaxDegreeOfParallelism = _openPullRequestsLoadThreshold,
-                CancellationToken = cancellationToken
-            },
+        await ForEachIndexAsync(
+            matchedRepositories.Count,
+            _openPullRequestsLoadThreshold,
             async (index, token) =>
             {
                 await _prApi
@@ -96,7 +92,8 @@ public sealed class RepositoryService : IRepoService
                     isLoadingPullRequestStatistics: true,
                     pullRequestStatisticsLoaded: currentLoaded,
                     pullRequestStatisticsTotal: matchedRepositories.Count));
-            }).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
 
         return matchedRepositories;
     }
@@ -194,13 +191,9 @@ public sealed class RepositoryService : IRepoService
 
         progress?.Report(new PullRequestRepositoryLoadProgress(0, repositoriesToInspect.Count));
 
-        await Parallel.ForEachAsync(
-            Enumerable.Range(0, repositoriesToInspect.Count),
-            new ParallelOptions
-            {
-                MaxDegreeOfParallelism = maxDegreeOfParallelism,
-                CancellationToken = cancellationToken
-            },
+        await ForEachIndexAsync(
+            repositoriesToInspect.Count,
+            maxDegreeOfParallelism,
             async (index, token) =>
             {
                 token.ThrowIfCancellationRequested();
@@ -213,7 +206,8 @@ public sealed class RepositoryService : IRepoService
 
                 var currentLoaded = Interlocked.Increment(ref loadedRepositories);
                 progress?.Report(new PullRequestRepositoryLoadProgress(currentLoaded, repositoriesToInspect.Count));
-            }).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
 
         var pullRequestsByAllRepositories = new List<TPullRequest>();
         for (var index = 0; index < pullRequestsByRepository.Length; index++)
@@ -225,6 +219,26 @@ public sealed class RepositoryService : IRepoService
         }
 
         return pullRequestsByAllRepositories;
+    }
+
+    private static Task ForEachIndexAsync(
+        int count,
+        int maxDegreeOfParallelism,
+        Func<int, CancellationToken, ValueTask> body,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxDegreeOfParallelism, 1);
+        ArgumentNullException.ThrowIfNull(body);
+
+        return Parallel.ForEachAsync(
+            Enumerable.Range(0, count),
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = maxDegreeOfParallelism,
+                CancellationToken = cancellationToken
+            },
+            body);
     }
 
     private readonly IBitbucketRepoApiClient _api;
