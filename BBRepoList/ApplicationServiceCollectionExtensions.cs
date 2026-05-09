@@ -67,9 +67,11 @@ internal static class ApplicationServiceCollectionExtensions
         _ = services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
         _ = services.AddSingleton<IBitbucketTelemetryService, BitbucketTelemetryService>();
         _ = services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
+        _ = services.AddSingleton<IPullRequestDetailsCacheService, PullRequestDetailsCacheService>();
         _ = services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
         _ = services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
         _ = services.AddTransient<IPullRequestActivityAnalyzer, PullRequestActivityAnalyzer>();
+        _ = services.AddTransient<IBitbucketPullRequestActivityLoader, BitbucketPullRequestActivityLoader>();
         _ = services.AddTransient<IPullRequestFingerprintBuilder, PullRequestFingerprintBuilder>();
         _ = services.AddTransient<IPullRequestSnapshotMapper, PullRequestSnapshotMapper>();
         _ = services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();

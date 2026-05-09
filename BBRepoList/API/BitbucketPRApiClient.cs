@@ -16,31 +16,31 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     /// Initializes a new instance of the <see cref="BitbucketPRApiClient"/> class.
     /// </summary>
     /// <param name="transport">Bitbucket transport instance.</param>
-    /// <param name="jsonParser">Bitbucket JSON parser.</param>
     /// <param name="activityAnalyzer">Pull request activity analyzer.</param>
+    /// <param name="activityLoader">Pull request activity loader.</param>
     /// <param name="snapshotMapper">Pull request snapshot mapper.</param>
-    /// <param name="cache">Pull request details cache.</param>
+    /// <param name="cacheService">Pull request details cache service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     public BitbucketPRApiClient(
         IBitbucketTransport transport,
-        IBitbucketJsonParser jsonParser,
         IPullRequestActivityAnalyzer activityAnalyzer,
+        IBitbucketPullRequestActivityLoader activityLoader,
         IPullRequestSnapshotMapper snapshotMapper,
-        IPullRequestDetailsCache cache,
+        IPullRequestDetailsCacheService cacheService,
         IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
-        ArgumentNullException.ThrowIfNull(jsonParser);
         ArgumentNullException.ThrowIfNull(activityAnalyzer);
+        ArgumentNullException.ThrowIfNull(activityLoader);
         ArgumentNullException.ThrowIfNull(snapshotMapper);
-        ArgumentNullException.ThrowIfNull(cache);
+        ArgumentNullException.ThrowIfNull(cacheService);
         ArgumentNullException.ThrowIfNull(options);
 
         _transport = transport;
-        _jsonParser = jsonParser;
         _activityAnalyzer = activityAnalyzer;
+        _activityLoader = activityLoader;
         _snapshotMapper = snapshotMapper;
-        _cache = cache;
+        _cacheService = cacheService;
         _options = options.Value;
     }
 
@@ -86,12 +86,9 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
         try
         {
-            var cacheEntries = await _cache
-                .ReadEntriesAsync(_options.Workspace, repositorySlug, currentUserId, cancellationToken)
+            var cacheEntriesByPullRequestId = await _cacheService
+                .ReadEntriesByPullRequestIdAsync(_options.Workspace, repositorySlug, currentUserId, cancellationToken)
                 .ConfigureAwait(false);
-            var cacheEntriesByPullRequestId = cacheEntries
-                .GroupBy(static entry => entry.PullRequestId)
-                .ToDictionary(static group => group.Key, static group => group.Last());
 
             var openPullRequests = await GetPullRequestSnapshotsAsync(
                 repositorySlug,
@@ -101,7 +98,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
 
             if (openPullRequests.Count == 0)
             {
-                await _cache
+                await _cacheService
                     .DeleteAsync(_options.Workspace, repositorySlug, currentUserId, cancellationToken)
                     .ConfigureAwait(false);
                 return [];
@@ -125,23 +122,17 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     continue;
                 }
 
-                var activities = await GetPullRequestActivitiesAsync(
+                var activities = await _activityLoader.GetActivitiesAsync(
                     repositorySlug,
                     pullRequest.Id,
                     cancellationToken).ConfigureAwait(false);
                 var activitySummary = _activityAnalyzer.CreateSummary(activities, pullRequest, currentUserId);
 
                 details.Add(CreatePullRequestDetail(repository, pullRequest, activitySummary));
-                updatedCacheEntries.Add(new PullRequestDetailsCacheEntry(
-                    pullRequest.Id,
-                    pullRequest.CacheFingerprint ?? string.Empty,
-                    activitySummary.FirstNonAuthorActivityOn,
-                    activitySummary.LastActivityOn,
-                    activitySummary.HasCurrentUserDiscussion,
-                    activitySummary.CommentsCount));
+                updatedCacheEntries.Add(_cacheService.CreateEntry(pullRequest, activitySummary));
             }
 
-            await _cache
+            await _cacheService
                 .SaveEntriesAsync(_options.Workspace, repositorySlug, currentUserId, updatedCacheEntries, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -192,7 +183,7 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
                     }
 
                     var pullRequest = _snapshotMapper.CreateSnapshot(pullRequestDto, currentUserId);
-                    var activities = await GetPullRequestActivitiesAsync(
+                    var activities = await _activityLoader.GetActivitiesAsync(
                         repositorySlug,
                         pullRequest.Id,
                         token).ConfigureAwait(false);
@@ -266,45 +257,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         }
     }
 
-    private async Task<IReadOnlyList<PullRequestActivityEntry>> GetPullRequestActivitiesAsync(
-        string repositorySlug,
-        int pullRequestId,
-        CancellationToken cancellationToken)
-    {
-        var url = CreatePullRequestActivitiesUrl(repositorySlug, pullRequestId);
-        var activities = new List<PullRequestActivityEntry>();
-
-        while (url is not null)
-        {
-            var page = await _transport.GetAsync<PullRequestActivityPageDto>(url, cancellationToken).ConfigureAwait(false);
-            if (page is null)
-            {
-                break;
-            }
-
-            foreach (var activity in page.Values ?? [])
-            {
-                if (activity.Properties is null)
-                {
-                    continue;
-                }
-
-                foreach (var property in activity.Properties)
-                {
-                    _jsonParser.AddActivityEntriesFromJson(
-                        property.Value,
-                        isCommentContext: property.Key.Equals("comment", StringComparison.OrdinalIgnoreCase),
-                        (actorId, happenedOn, isComment) =>
-                            activities.Add(new PullRequestActivityEntry(actorId, happenedOn, isComment)));
-                }
-            }
-
-            url = page.Next;
-        }
-
-        return [.. activities.DistinctBy(static activity => (activity.ActorId, activity.HappenedOn, activity.IsComment))];
-    }
-
     private Uri CreateOpenPullRequestCountUrl(string repositorySlug) =>
         new(
             $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests?state=OPEN&pagelen=1&fields=size",
@@ -318,11 +270,6 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
     private Uri CreateOpenPullRequestSnapshotsUrl(string repositorySlug) =>
         new(
             $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests?state=OPEN&pagelen={_options.PageLen}&fields={EscapeFields(OPEN_PULL_REQUEST_SNAPSHOT_FIELDS)}",
-            UriKind.Relative);
-
-    private Uri CreatePullRequestActivitiesUrl(string repositorySlug, int pullRequestId) =>
-        new(
-            $"repositories/{_options.Workspace}/{EscapeRepositorySlug(repositorySlug)}/pullrequests/{pullRequestId}/activity?pagelen={_options.PageLen}&fields={EscapeFields(PULL_REQUEST_ACTIVITY_FIELDS)}",
             UriKind.Relative);
 
     private static string EscapeRepositorySlug(string repositorySlug) => Uri.EscapeDataString(repositorySlug);
@@ -373,45 +320,33 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
             pullRequest.ApprovalsCount,
             pullRequest.HasCurrentUserApproval);
 
-    private static bool TryCreateDetailFromCache(
+    private bool TryCreateDetailFromCache(
         Repository repository,
         PullRequestSnapshot pullRequest,
-        Dictionary<int, PullRequestDetailsCacheEntry> cacheEntriesByPullRequestId,
+        IReadOnlyDictionary<int, PullRequestDetailsCacheEntry> cacheEntriesByPullRequestId,
         out PullRequestDetail detail,
         out PullRequestDetailsCacheEntry cacheEntry)
     {
         detail = null!;
-        cacheEntry = null!;
 
-        if (string.IsNullOrWhiteSpace(pullRequest.CacheFingerprint)
-            || !cacheEntriesByPullRequestId.TryGetValue(pullRequest.Id, out var existingEntry)
-            || !string.Equals(existingEntry.Fingerprint, pullRequest.CacheFingerprint, StringComparison.Ordinal))
+        if (!_cacheService.TryCreateActivitySummary(
+            pullRequest,
+            cacheEntriesByPullRequestId,
+            out var activitySummary,
+            out cacheEntry))
         {
             return false;
         }
 
-        try
-        {
-            var activitySummary = new PullRequestActivitySummary(
-                existingEntry.FirstNonAuthorActivityOn,
-                existingEntry.LastActivityOn,
-                existingEntry.HasCurrentUserDiscussion,
-                existingEntry.CommentsCount);
-            detail = CreatePullRequestDetail(repository, pullRequest, activitySummary);
-            cacheEntry = existingEntry;
-            return true;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
+        detail = CreatePullRequestDetail(repository, pullRequest, activitySummary);
+        return true;
     }
 
     private readonly IBitbucketTransport _transport;
-    private readonly IBitbucketJsonParser _jsonParser;
     private readonly IPullRequestActivityAnalyzer _activityAnalyzer;
+    private readonly IBitbucketPullRequestActivityLoader _activityLoader;
     private readonly IPullRequestSnapshotMapper _snapshotMapper;
-    private readonly IPullRequestDetailsCache _cache;
+    private readonly IPullRequestDetailsCacheService _cacheService;
     private readonly BitbucketOptions _options;
 
     private const string MERGED_PULL_REQUEST_FIELDS =
@@ -446,16 +381,4 @@ public sealed class BitbucketPRApiClient : IBitbucketPRApiClient
         "values.participants.approved," +
         "next";
 
-    private const string PULL_REQUEST_ACTIVITY_FIELDS =
-        "values.actor.uuid," +
-        "values.user.uuid," +
-        "values.date," +
-        "values.created_on," +
-        "values.updated_on," +
-        "values.comment," +
-        "values.approval," +
-        "values.request_changes," +
-        "values.changes_requested," +
-        "values.update," +
-        "next";
 }

@@ -26,50 +26,52 @@ public sealed class BitbucketPRApiClientTests
         IBitbucketTransport transport = null!;
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var activityLoader = new Mock<IBitbucketPullRequestActivityLoader>(MockBehavior.Strict).Object;
         var snapshotMapper = CreateSnapshotMapper(parser);
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport, parser, analyzer, snapshotMapper, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport, analyzer, activityLoader, snapshotMapper, CreateCacheService(cache), options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
-    [Fact(DisplayName = "Constructor throws when json parser is null")]
+    [Fact(DisplayName = "Constructor throws when activity loader is null")]
     [Trait("Category", "Unit")]
-    public void ConstructorWhenJsonParserIsNullThrowsArgumentNullException()
+    public void ConstructorWhenActivityLoaderIsNullThrowsArgumentNullException()
     {
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
-        IBitbucketJsonParser parser = null!;
         var analyzer = new PullRequestActivityAnalyzer();
         var snapshotMapper = CreateSnapshotMapper(new BitbucketJsonParser());
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
+        IBitbucketPullRequestActivityLoader activityLoader = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, analyzer, activityLoader, snapshotMapper, CreateCacheService(cache), options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
-    [Fact(DisplayName = "Constructor throws when cache is null")]
+    [Fact(DisplayName = "Constructor throws when cache service is null")]
     [Trait("Category", "Unit")]
-    public void ConstructorWhenCacheIsNullThrowsArgumentNullException()
+    public void ConstructorWhenCacheServiceIsNullThrowsArgumentNullException()
     {
         // Arrange
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var activityLoader = new Mock<IBitbucketPullRequestActivityLoader>(MockBehavior.Strict).Object;
         var snapshotMapper = CreateSnapshotMapper(parser);
-        IPullRequestDetailsCache cache = null!;
+        IPullRequestDetailsCacheService cacheService = null!;
         var options = Options.Create(CreateOptions());
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, analyzer, activityLoader, snapshotMapper, cacheService, options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -83,12 +85,13 @@ public sealed class BitbucketPRApiClientTests
         var transport = new Mock<IBitbucketTransport>(MockBehavior.Strict);
         var parser = new BitbucketJsonParser();
         var analyzer = new PullRequestActivityAnalyzer();
+        var activityLoader = new Mock<IBitbucketPullRequestActivityLoader>(MockBehavior.Strict).Object;
         var snapshotMapper = CreateSnapshotMapper(parser);
         var cache = new Mock<IPullRequestDetailsCache>(MockBehavior.Strict).Object;
         IOptions<BitbucketOptions> options = null!;
 
         // Act
-        Action act = () => _ = new BitbucketPRApiClient(transport.Object, parser, analyzer, snapshotMapper, cache, options);
+        Action act = () => _ = new BitbucketPRApiClient(transport.Object, analyzer, activityLoader, snapshotMapper, CreateCacheService(cache), options);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -654,11 +657,16 @@ public sealed class BitbucketPRApiClientTests
     private static BitbucketPRApiClient CreateClient(IBitbucketTransport transport, IPullRequestDetailsCache cache) =>
         new(
             transport,
-            new BitbucketJsonParser(),
             new PullRequestActivityAnalyzer(),
+            CreateActivityLoader(transport),
             CreateSnapshotMapper(new BitbucketJsonParser()),
-            cache,
+            CreateCacheService(cache),
             Options.Create(CreateOptions()));
+
+    private static PullRequestDetailsCacheService CreateCacheService(IPullRequestDetailsCache cache) => new(cache);
+
+    private static BitbucketPullRequestActivityLoader CreateActivityLoader(IBitbucketTransport transport) =>
+        new(transport, new BitbucketJsonParser(), Options.Create(CreateOptions()));
 
     private static PullRequestSnapshotMapper CreateSnapshotMapper(IBitbucketJsonParser parser) =>
         new(parser, new PullRequestFingerprintBuilder());
