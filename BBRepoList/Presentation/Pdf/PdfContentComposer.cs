@@ -43,7 +43,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
             reportData.Repositories,
             reportData.Workspace,
             reportData.LoadAbandonedRepositoriesStatistics,
-            reportData.AbandonedMonthsThreshold);
+            reportData.AbandonedMonthsThreshold,
+            reportData.GeneratedAt);
     }
 
     private static void ComposeRepositoriesSection(
@@ -413,7 +414,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
         IReadOnlyList<Repository> repositories,
         string workspace,
         bool loadAbandonedRepositoriesStatistics,
-        int abandonedMonthsThreshold)
+        int abandonedMonthsThreshold,
+        DateTimeOffset generatedAt)
     {
         if (!loadAbandonedRepositoriesStatistics)
         {
@@ -422,8 +424,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
         var abandonedRepositories = repositories
             .Where(repository => repository.CanCalculateInactivityTiming
-                                 && repository.MonthsWithoutActivity > abandonedMonthsThreshold)
-            .OrderByDescending(static repository => repository.MonthsWithoutActivity)
+                                 && repository.CalculateMonthsWithoutActivity(generatedAt) > abandonedMonthsThreshold)
+            .OrderByDescending(repository => repository.CalculateMonthsWithoutActivity(generatedAt))
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -462,7 +464,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
                 var repository = abandonedRepositories[i];
                 var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
                 var lastActivityOn = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-                var inactiveMonths = repository.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
+                var inactiveMonths = repository.CalculateMonthsWithoutActivity(generatedAt).ToString(CultureInfo.InvariantCulture);
                 var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, repository.Slug);
 
                 _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));

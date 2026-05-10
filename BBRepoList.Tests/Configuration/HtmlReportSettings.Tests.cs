@@ -1,5 +1,3 @@
-using System.Globalization;
-
 using BBRepoList.Configuration;
 
 using FluentAssertions;
@@ -27,13 +25,18 @@ public sealed class HtmlReportSettingsTests
     {
         // Arrange
         var settings = new HtmlReportSettings(true, "reports\\bbrepolist-pr-details.html");
-        var dateSuffix = DateTime.Now.ToString("dd_MM_yyyy", CultureInfo.InvariantCulture);
+        var timeProvider = new FixedTimeProvider(new DateTimeOffset(2026, 5, 10, 13, 15, 0, TimeSpan.Zero));
 
         // Act
-        var resolvedPath = settings.ResolveOutputPath();
+        var resolvedPath = settings.ResolveOutputPath(timeProvider);
 
         // Assert
         Path.IsPathRooted(resolvedPath).Should().BeTrue();
-        resolvedPath.Should().Contain("bbrepolist-pr-details_" + dateSuffix + ".html");
+        resolvedPath.Should().Contain("bbrepolist-pr-details_10_05_2026.html");
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

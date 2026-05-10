@@ -219,7 +219,7 @@ public sealed class RepositoryTests
     public void ConstructorWhenCreatedAndUpdatedDatesAreProvidedMarksInactivityTimingAsCalculable()
     {
         // Arrange
-        var now = DateTimeOffset.UtcNow;
+        var now = new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero);
         var createdOn = now.AddMonths(-20);
         var lastUpdatedOn = now.AddMonths(-15);
 
@@ -228,7 +228,7 @@ public sealed class RepositoryTests
 
         // Assert
         repo.CanCalculateInactivityTiming.Should().BeTrue();
-        repo.MonthsWithoutActivity.Should().Be(15);
+        repo.CalculateMonthsWithoutActivity(now).Should().Be(15);
     }
 
     [Fact(DisplayName = "Constructor marks inactivity timing as non calculable when at least one date is missing")]
@@ -236,14 +236,15 @@ public sealed class RepositoryTests
     public void ConstructorWhenCreatedOrUpdatedDateIsMissingMarksInactivityTimingAsNonCalculable()
     {
         // Arrange
-        var createdOnly = new Repository("Repo-1", DateTimeOffset.UtcNow.AddMonths(-12), null);
-        var updatedOnly = new Repository("Repo-2", null, DateTimeOffset.UtcNow.AddMonths(-12));
+        var now = new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero);
+        var createdOnly = new Repository("Repo-1", now.AddMonths(-12), null);
+        var updatedOnly = new Repository("Repo-2", null, now.AddMonths(-12));
 
         // Assert
         createdOnly.CanCalculateInactivityTiming.Should().BeFalse();
-        createdOnly.MonthsWithoutActivity.Should().Be(0);
+        createdOnly.CalculateMonthsWithoutActivity(now).Should().Be(0);
         updatedOnly.CanCalculateInactivityTiming.Should().BeFalse();
-        updatedOnly.MonthsWithoutActivity.Should().Be(0);
+        updatedOnly.CalculateMonthsWithoutActivity(now).Should().Be(0);
     }
 
     [Fact(DisplayName = "Constructor trims slug")]
@@ -278,6 +279,6 @@ public sealed class RepositoryTests
         repo.CanPopulateOpenPullRequestsCount.Should().BeFalse();
         repo.CanLoadPullRequests.Should().BeFalse();
         repo.CanCalculateInactivityTiming.Should().BeFalse();
-        repo.MonthsWithoutActivity.Should().Be(0);
+        repo.CalculateMonthsWithoutActivity(new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero)).Should().Be(0);
     }
 }

@@ -44,6 +44,7 @@ internal static class ApplicationServiceCollectionExtensions
 
         _ = services.AddBitbucketApi();
         _ = services.AddReportRendering();
+        _ = services.AddSingleton(TimeProvider.System);
         _ = services.AddTransient<IRepoService, RepositoryService>();
         _ = services.AddTransient<ConsoleApp>();
 

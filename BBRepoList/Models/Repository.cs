@@ -28,9 +28,6 @@ public sealed class Repository
         LastUpdatedOn = lastUpdatedOn;
         Slug = string.IsNullOrWhiteSpace(slug) ? null : slug.Trim();
         CanCalculateInactivityTiming = createdOn is not null && lastUpdatedOn is not null;
-        MonthsWithoutActivity = CanCalculateInactivityTiming
-            ? CalculateFullMonthsBetween(lastUpdatedOn!.Value, DateTimeOffset.UtcNow)
-            : 0;
     }
 
     /// <summary>
@@ -91,9 +88,14 @@ public sealed class Repository
     public bool CanCalculateInactivityTiming { get; }
 
     /// <summary>
-    /// Number of full inactive months since last update.
+    /// Calculates number of full inactive months since last update.
     /// </summary>
-    public int MonthsWithoutActivity { get; }
+    /// <param name="asOf">Boundary date/time for the calculation.</param>
+    /// <returns>Number of full inactive months.</returns>
+    public int CalculateMonthsWithoutActivity(DateTimeOffset asOf) =>
+        CanCalculateInactivityTiming
+            ? CalculateFullMonthsBetween(LastUpdatedOn!.Value, asOf)
+            : 0;
 
     private static int CalculateFullMonthsBetween(DateTimeOffset from, DateTimeOffset to)
     {

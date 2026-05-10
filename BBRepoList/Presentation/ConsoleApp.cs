@@ -26,6 +26,7 @@ public sealed class ConsoleApp
     /// <param name="repoService">Repository loading service.</param>
     /// <param name="telemetryService">Bitbucket API telemetry service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
+    /// <param name="timeProvider">Time provider for report timestamps.</param>
     public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
                       IHtmlReportRenderer htmlReportRenderer,
                       IPdfReportRenderer pdfReportRenderer,
@@ -33,7 +34,8 @@ public sealed class ConsoleApp
                       IConsoleReportRenderer consoleReportRenderer,
                       IRepoService repoService,
                       IBitbucketTelemetryService telemetryService,
-                      IOptions<BitbucketOptions> options)
+                      IOptions<BitbucketOptions> options,
+                      TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
         ArgumentNullException.ThrowIfNull(htmlReportRenderer);
@@ -43,6 +45,7 @@ public sealed class ConsoleApp
         ArgumentNullException.ThrowIfNull(repoService);
         ArgumentNullException.ThrowIfNull(telemetryService);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _bitbucketAuthApiClient = bitbucketAuthApiClient;
         _htmlReportRenderer = htmlReportRenderer;
@@ -52,6 +55,7 @@ public sealed class ConsoleApp
         _repoService = repoService;
         _telemetryService = telemetryService;
         _options = options.Value;
+        _timeProvider = timeProvider;
     }
 
     /// <summary>
@@ -61,7 +65,7 @@ public sealed class ConsoleApp
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var executionTime = Stopwatch.StartNew();
-        var reportOpenedAt = DateTimeOffset.UtcNow;
+        var reportOpenedAt = _timeProvider.GetUtcNow();
         ShowTitle();
 
         var authenticatedUser = await TryAuthenticateAsync(cancellationToken).ConfigureAwait(false);
@@ -100,7 +104,7 @@ public sealed class ConsoleApp
             mergedPullRequests,
             pullRequestDetails,
             filterPattern,
-            DateTimeOffset.Now);
+            _timeProvider.GetLocalNow());
 
         RenderReports(reportData);
         _consoleReportRenderer.RenderTelemetrySummary(_telemetryService.GetSnapshot());
@@ -309,5 +313,6 @@ public sealed class ConsoleApp
     private readonly IRepoService _repoService;
     private readonly IBitbucketTelemetryService _telemetryService;
     private readonly BitbucketOptions _options;
+    private readonly TimeProvider _timeProvider;
 
 }

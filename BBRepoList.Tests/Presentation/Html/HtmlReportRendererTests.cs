@@ -30,7 +30,7 @@ public sealed class HtmlReportRendererTests
         var launcher = new Mock<IHtmlReportLauncher>(MockBehavior.Strict);
         launcher.Setup(l => l.Open(It.IsAny<string>()));
 
-        var renderer = new HtmlReportRenderer(options, fileStore.Object, composer.Object, launcher.Object);
+        var renderer = new HtmlReportRenderer(options, fileStore.Object, composer.Object, launcher.Object, TimeProvider.System);
         var reportData = CreateReportData();
 
         // Act
@@ -56,7 +56,7 @@ public sealed class HtmlReportRendererTests
 
         var launcher = new Mock<IHtmlReportLauncher>(MockBehavior.Strict);
 
-        var renderer = new HtmlReportRenderer(options, fileStore.Object, composer.Object, launcher.Object);
+        var renderer = new HtmlReportRenderer(options, fileStore.Object, composer.Object, launcher.Object, TimeProvider.System);
         var reportData = CreateReportData();
 
         // Act

@@ -19,11 +19,14 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
     /// Initializes a new instance of the <see cref="ConsoleReportRenderer"/> class.
     /// </summary>
     /// <param name="options">Bitbucket configuration options.</param>
-    public ConsoleReportRenderer(IOptions<BitbucketOptions> options)
+    /// <param name="timeProvider">Time provider for age calculations.</param>
+    public ConsoleReportRenderer(IOptions<BitbucketOptions> options, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _options = options.Value;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
@@ -115,7 +118,7 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
 
         var table = CreatePullRequestTable("Merged", includeMergedOn: true);
         var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
-        var asOf = DateTimeOffset.UtcNow;
+        var asOf = _timeProvider.GetUtcNow();
 
         for (var i = 0; i < mergedPullRequests.Count; i++)
         {
@@ -145,7 +148,7 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
         var table = CreatePullRequestTable("Updated", includeMergedOn: false);
         var ttfrThresholdHours = _options.PullRequestDetails.TtfrThresholdHours;
         var minimalDescriptionTextLength = _options.PullRequestDetails.MinimalDescriptionTextLength;
-        var asOf = DateTimeOffset.UtcNow;
+        var asOf = _timeProvider.GetUtcNow();
 
         for (var i = 0; i < pullRequestDetails.Count; i++)
         {
@@ -176,10 +179,11 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
             return;
         }
 
+        var asOf = _timeProvider.GetUtcNow();
         var abandonedRepositories = repositories
             .Where(repository => repository.CanCalculateInactivityTiming
-                                 && repository.MonthsWithoutActivity > _options.AbandonedMonthsThreshold)
-            .OrderByDescending(static repository => repository.MonthsWithoutActivity)
+                                 && repository.CalculateMonthsWithoutActivity(asOf) > _options.AbandonedMonthsThreshold)
+            .OrderByDescending(repository => repository.CalculateMonthsWithoutActivity(asOf))
             .ThenBy(static repository => repository.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -205,7 +209,7 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
             var repository = abandonedRepositories[i];
             var createdOn = repository.CreatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
             var lastActivityOn = repository.LastUpdatedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-";
-            var monthsWithoutActivity = repository.MonthsWithoutActivity.ToString(CultureInfo.InvariantCulture);
+            var monthsWithoutActivity = repository.CalculateMonthsWithoutActivity(asOf).ToString(CultureInfo.InvariantCulture);
 
             _ = table.AddRow(
                 (i + 1).ToString(CultureInfo.InvariantCulture),
@@ -347,4 +351,5 @@ public sealed class ConsoleReportRenderer : IConsoleReportRenderer
     }
 
     private readonly BitbucketOptions _options;
+    private readonly TimeProvider _timeProvider;
 }

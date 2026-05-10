@@ -1,5 +1,3 @@
-using System.Globalization;
-
 using BBRepoList.Configuration;
 
 using FluentAssertions;
@@ -26,13 +24,18 @@ public sealed class PdfReportSettingsTests
     {
         // Arrange
         var settings = new PdfReportSettings(true, "reports\\bbrepolist-report.pdf");
-        var dateSuffix = DateTime.Now.ToString("dd_MM_yyyy", CultureInfo.InvariantCulture);
+        var timeProvider = new FixedTimeProvider(new DateTimeOffset(2026, 5, 10, 13, 15, 0, TimeSpan.Zero));
 
         // Act
-        var resolvedPath = settings.ResolveOutputPath();
+        var resolvedPath = settings.ResolveOutputPath(timeProvider);
 
         // Assert
         Path.IsPathRooted(resolvedPath).Should().BeTrue();
-        resolvedPath.Should().Contain("bbrepolist-report_" + dateSuffix + ".pdf");
+        resolvedPath.Should().Contain("bbrepolist-report_10_05_2026.pdf");
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

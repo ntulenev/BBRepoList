@@ -41,8 +41,10 @@ public sealed record HtmlReportSettings
     /// Resolves output path to absolute path and appends date suffix.
     /// </summary>
     /// <returns>Absolute dated output path.</returns>
-    public string ResolveOutputPath()
+    public string ResolveOutputPath(TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         var candidatePath = string.IsNullOrWhiteSpace(OutputPath)
             ? DEFAULT_OUTPUT_PATH
             : OutputPath.Trim();
@@ -51,7 +53,8 @@ public sealed record HtmlReportSettings
             ? Path.GetFullPath(candidatePath)
             : Path.GetFullPath(candidatePath, Directory.GetCurrentDirectory());
 
-        return AppendDateSuffix(absolutePath, DateTime.Now);
+        var currentDate = timeProvider.GetLocalNow().DateTime;
+        return AppendDateSuffix(absolutePath, currentDate);
     }
 
     private static string AppendDateSuffix(string absolutePath, DateTime currentDate)

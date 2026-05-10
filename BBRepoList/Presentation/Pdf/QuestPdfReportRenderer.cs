@@ -26,18 +26,22 @@ public sealed class QuestPdfReportRenderer : IPdfReportRenderer
     /// <param name="options">Bitbucket options.</param>
     /// <param name="pdfReportFileStore">PDF output file store.</param>
     /// <param name="pdfContentComposer">PDF content composer.</param>
+    /// <param name="timeProvider">Time provider for output path date suffixes.</param>
     public QuestPdfReportRenderer(
         IOptions<BitbucketOptions> options,
         IPdfReportFileStore pdfReportFileStore,
-        IPdfContentComposer pdfContentComposer)
+        IPdfContentComposer pdfContentComposer,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(pdfReportFileStore);
         ArgumentNullException.ThrowIfNull(pdfContentComposer);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _settings = options.Value;
         _pdfReportFileStore = pdfReportFileStore;
         _pdfContentComposer = pdfContentComposer;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
@@ -51,7 +55,7 @@ public sealed class QuestPdfReportRenderer : IPdfReportRenderer
             return;
         }
 
-        var outputPath = pdfSettings.ResolveOutputPath();
+        var outputPath = pdfSettings.ResolveOutputPath(_timeProvider);
 
         QuestPDF.Settings.License = QLicenseType.Community;
 
@@ -97,4 +101,5 @@ public sealed class QuestPdfReportRenderer : IPdfReportRenderer
     private readonly BitbucketOptions _settings;
     private readonly IPdfReportFileStore _pdfReportFileStore;
     private readonly IPdfContentComposer _pdfContentComposer;
+    private readonly TimeProvider _timeProvider;
 }

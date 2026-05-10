@@ -20,21 +20,25 @@ public sealed class HtmlReportRenderer : IHtmlReportRenderer
     /// <param name="htmlReportFileStore">HTML output file store.</param>
     /// <param name="htmlContentComposer">HTML content composer.</param>
     /// <param name="htmlReportLauncher">HTML report launcher.</param>
+    /// <param name="timeProvider">Time provider for output path date suffixes.</param>
     public HtmlReportRenderer(
         IOptions<BitbucketOptions> options,
         IHtmlReportFileStore htmlReportFileStore,
         IHtmlContentComposer htmlContentComposer,
-        IHtmlReportLauncher htmlReportLauncher)
+        IHtmlReportLauncher htmlReportLauncher,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(htmlReportFileStore);
         ArgumentNullException.ThrowIfNull(htmlContentComposer);
         ArgumentNullException.ThrowIfNull(htmlReportLauncher);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _settings = options.Value;
         _htmlReportFileStore = htmlReportFileStore;
         _htmlContentComposer = htmlContentComposer;
         _htmlReportLauncher = htmlReportLauncher;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
@@ -48,7 +52,7 @@ public sealed class HtmlReportRenderer : IHtmlReportRenderer
             return;
         }
 
-        var outputPath = htmlSettings.ResolveOutputPath();
+        var outputPath = htmlSettings.ResolveOutputPath(_timeProvider);
         var html = _htmlContentComposer.Compose(reportData);
 
         _htmlReportFileStore.Save(outputPath, html);
@@ -67,4 +71,5 @@ public sealed class HtmlReportRenderer : IHtmlReportRenderer
     private readonly IHtmlReportFileStore _htmlReportFileStore;
     private readonly IHtmlContentComposer _htmlContentComposer;
     private readonly IHtmlReportLauncher _htmlReportLauncher;
+    private readonly TimeProvider _timeProvider;
 }
