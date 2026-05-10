@@ -23,6 +23,8 @@ namespace BBRepoList;
 /// </summary>
 internal static class ApplicationServiceCollectionExtensions
 {
+    private const string BITBUCKET_SECTION_NAME = "Bitbucket";
+
     /// <summary>
     /// Adds BBRepoList configuration, Bitbucket API, reporting, and application services.
     /// </summary>
@@ -36,25 +38,48 @@ internal static class ApplicationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        _ = services.AddApplicationOptions(configuration);
+        _ = services.AddSystemServices();
+        _ = services.AddBitbucketTransport();
+        _ = services.AddBitbucketApiClients();
+        _ = services.AddPullRequestServices();
+        _ = services.AddCaching();
+        _ = services.AddReportRendering();
+        _ = services.AddApplicationWorkflow();
+
+        return services;
+    }
+
+    private static IServiceCollection AddApplicationOptions(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         _ = services
             .AddOptions<BitbucketOptions>()
-            .Bind(configuration.GetSection("Bitbucket"))
+            .Bind(configuration.GetSection(BITBUCKET_SECTION_NAME))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        _ = services.AddBitbucketApi();
-        _ = services.AddReportRendering();
+        return services;
+    }
+
+    private static IServiceCollection AddSystemServices(this IServiceCollection services)
+    {
         _ = services.AddSingleton(TimeProvider.System);
+
+        return services;
+    }
+
+    private static IServiceCollection AddApplicationWorkflow(this IServiceCollection services)
+    {
         _ = services.AddTransient<IRepoService, RepositoryService>();
         _ = services.AddTransient<ConsoleApp>();
 
         return services;
     }
 
-    private static IServiceCollection AddBitbucketApi(this IServiceCollection services)
+    private static IServiceCollection AddBitbucketTransport(this IServiceCollection services)
     {
-        _ = services.AddTransient<IBitbucketAuthApiClient, BitbucketAuthApiClient>();
-
         _ = services.AddHttpClient<IBitbucketTransport, BitbucketTransport>((sp, http) =>
         {
             var settings = sp.GetRequiredService<IOptions<BitbucketOptions>>().Value;
@@ -67,15 +92,34 @@ internal static class ApplicationServiceCollectionExtensions
 
         _ = services.AddSingleton<IBitbucketRetryPolicy, BitbucketRetryPolicy>();
         _ = services.AddSingleton<IBitbucketTelemetryService, BitbucketTelemetryService>();
-        _ = services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
-        _ = services.AddSingleton<IPullRequestDetailsCacheService, PullRequestDetailsCacheService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddBitbucketApiClients(this IServiceCollection services)
+    {
+        _ = services.AddTransient<IBitbucketAuthApiClient, BitbucketAuthApiClient>();
         _ = services.AddTransient<IBitbucketRepoApiClient, BitbucketRepoApiClient>();
         _ = services.AddTransient<IBitbucketJsonParser, BitbucketJsonParser>();
+        _ = services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddPullRequestServices(this IServiceCollection services)
+    {
         _ = services.AddTransient<IPullRequestActivityAnalyzer, PullRequestActivityAnalyzer>();
         _ = services.AddTransient<IBitbucketPullRequestActivityLoader, BitbucketPullRequestActivityLoader>();
         _ = services.AddTransient<IPullRequestFingerprintBuilder, PullRequestFingerprintBuilder>();
         _ = services.AddTransient<IPullRequestSnapshotMapper, PullRequestSnapshotMapper>();
-        _ = services.AddTransient<IBitbucketPRApiClient, BitbucketPRApiClient>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCaching(this IServiceCollection services)
+    {
+        _ = services.AddSingleton<IPullRequestDetailsCache, FilePullRequestDetailsCache>();
+        _ = services.AddSingleton<IPullRequestDetailsCacheService, PullRequestDetailsCacheService>();
 
         return services;
     }

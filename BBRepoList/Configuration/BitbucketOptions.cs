@@ -117,49 +117,49 @@ public sealed class BitbucketOptions
     {
         ArgumentNullException.ThrowIfNull(validationContext);
 
+        foreach (var result in ValidateNestedOptions(Pdf))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateNestedOptions(Html))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateNestedOptions(PullRequestDetails))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateNestedOptions(MergedPullRequests))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateNestedOptions(Telemetry))
+        {
+            yield return result;
+        }
+    }
+
+    private static IEnumerable<ValidationResult> ValidateNestedOptions(object? options)
+    {
+        if (options is null)
+        {
+            yield break;
+        }
+
         var nestedResults = new List<ValidationResult>();
-        if (PullRequestDetails is not null)
+        _ = Validator.TryValidateObject(
+            options,
+            new ValidationContext(options),
+            nestedResults,
+            validateAllProperties: true);
+
+        foreach (var result in nestedResults)
         {
-            _ = Validator.TryValidateObject(
-                PullRequestDetails,
-                new ValidationContext(PullRequestDetails),
-                nestedResults,
-                validateAllProperties: true);
-
-            foreach (var result in nestedResults)
-            {
-                yield return result;
-            }
-        }
-
-        nestedResults.Clear();
-        if (MergedPullRequests is not null)
-        {
-            _ = Validator.TryValidateObject(
-                MergedPullRequests,
-                new ValidationContext(MergedPullRequests),
-                nestedResults,
-                validateAllProperties: true);
-
-            foreach (var result in nestedResults)
-            {
-                yield return result;
-            }
-        }
-
-        nestedResults.Clear();
-        if (Telemetry is not null)
-        {
-            _ = Validator.TryValidateObject(
-                Telemetry,
-                new ValidationContext(Telemetry),
-                nestedResults,
-                validateAllProperties: true);
-
-            foreach (var result in nestedResults)
-            {
-                yield return result;
-            }
+            yield return result;
         }
     }
 }
