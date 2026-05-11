@@ -196,41 +196,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
         column.Item().Table(table =>
         {
-            table.ColumnsDefinition(columns =>
-            {
-                columns.ConstantColumn(26);
-                columns.RelativeColumn(2f);
-                columns.RelativeColumn(1.6f);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(0.9f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn(0.8f);
-                columns.RelativeColumn(0.9f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(1f);
-            });
-
-            table.Header(header =>
-            {
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("#");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Repository");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("PR");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("🧑‍💻");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Description len");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Merged");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Merged on");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("💬");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Me");
-            });
+            ConfigureMergedPullRequestColumns(table);
+            ComposePullRequestHeader(table, activityColumnName: "Merged", includeMergedOn: true);
 
             for (var i = 0; i < mergedPullRequests.Count; i++)
             {
@@ -238,55 +205,14 @@ public sealed class PdfContentComposer : IPdfContentComposer
                     mergedPullRequests[i],
                     generatedAt,
                     minimalDescriptionTextLength);
-                var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, row.RepositorySlug);
-                var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
+
+                ComposePullRequestReportRow(
+                    table,
+                    row,
+                    i,
                     workspace,
-                    row.RepositorySlug,
-                    row.PullRequestId);
-
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
-                _ = string.IsNullOrWhiteSpace(repositoryUrl)
-                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.RepositoryName)
-                    : table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .Hyperlink(repositoryUrl)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
-                        .Text(row.RepositoryName);
-
-                ComposePullRequestCell(
-                    table.Cell().Element(PdfPresentationHelpers.StyleBodyCell),
-                    pullRequestUrl,
-                    row.PullRequestNumberText,
-                    row.Title);
-
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
-                    .Text(string.Join('\n', row.AuthorDisplayNameLines));
-                _ = row.IsDescriptionShort
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
-                        .Text(row.DescriptionLengthText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.DescriptionLengthText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.OpenedOnText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.OpenDurationText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.TimeToFirstResponseText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.ActivityAgeText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.MergedOnText ?? "-");
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
-                    .Text(row.CommentsCountText);
-                _ = row.RequestChangesCount > 0
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Orange.Darken2))
-                        .Text(row.RequestChangesText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.RequestChangesText);
-                _ = row.ApprovalsCount > 0
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Green.Darken2))
-                        .Text(row.ApprovalsText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.ApprovalsText);
-                ComposeMyActivityCell(table.Cell().Element(PdfPresentationHelpers.StyleBodyCell), row);
+                    includeMergedOn: true,
+                    highlightMissingTtfr: false);
             }
         });
     }
@@ -311,39 +237,8 @@ public sealed class PdfContentComposer : IPdfContentComposer
 
         column.Item().Table(table =>
         {
-            table.ColumnsDefinition(columns =>
-            {
-                columns.ConstantColumn(24);
-                columns.RelativeColumn(2f);
-                columns.RelativeColumn(1.6f);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(0.9f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(0.8f);
-                columns.RelativeColumn(0.9f);
-                columns.RelativeColumn(1f);
-                columns.RelativeColumn(1f);
-            });
-
-            table.Header(header =>
-            {
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("#");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Repository");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("PR");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("🧑‍💻");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Description len");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Opened on");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Open for");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("TTFR");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Updated");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("💬");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("RC");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("AP");
-                _ = header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text("Me");
-            });
+            ConfigureOpenPullRequestColumns(table);
+            ComposePullRequestHeader(table, activityColumnName: "Updated", includeMergedOn: false);
 
             for (var i = 0; i < pullRequestDetails.Count; i++)
             {
@@ -352,61 +247,166 @@ public sealed class PdfContentComposer : IPdfContentComposer
                     generatedAt,
                     ttfrThresholdHours,
                     minimalDescriptionTextLength);
-                var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, row.RepositorySlug);
-                var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
+
+                ComposePullRequestReportRow(
+                    table,
+                    row,
+                    i,
                     workspace,
-                    row.RepositorySlug,
-                    row.PullRequestId);
-
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text((i + 1).ToString(CultureInfo.InvariantCulture));
-                _ = string.IsNullOrWhiteSpace(repositoryUrl)
-                    ? table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.RepositoryName)
-                    : table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .Hyperlink(repositoryUrl)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline())
-                        .Text(row.RepositoryName);
-
-                ComposePullRequestCell(
-                    table.Cell().Element(PdfPresentationHelpers.StyleBodyCell),
-                    pullRequestUrl,
-                    row.PullRequestNumberText,
-                    row.Title);
-
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
-                    .Text(string.Join('\n', row.AuthorDisplayNameLines));
-                _ = row.IsDescriptionShort
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
-                        .Text(row.DescriptionLengthText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.DescriptionLengthText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.OpenedOnText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.OpenDurationText);
-                _ = row.IsTtfrAlert
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Red.Darken2))
-                        .Text(row.TimeToFirstResponseText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.TimeToFirstResponseText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.ActivityAgeText);
-                _ = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell)
-                    .Text(row.CommentsCountText);
-                _ = row.RequestChangesCount > 0
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Orange.Darken2))
-                        .Text(row.RequestChangesText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.RequestChangesText);
-                _ = row.ApprovalsCount > 0
-                    ? table.Cell()
-                        .Element(PdfPresentationHelpers.StyleBodyCell)
-                        .DefaultTextStyle(static style => style.FontColor(Colors.Green.Darken2))
-                        .Text(row.ApprovalsText)
-                    : table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(row.ApprovalsText);
-                ComposeMyActivityCell(table.Cell().Element(PdfPresentationHelpers.StyleBodyCell), row);
+                    includeMergedOn: false,
+                    highlightMissingTtfr: true);
             }
         });
+    }
+
+    private static void ConfigureMergedPullRequestColumns(TableDescriptor table)
+    {
+        table.ColumnsDefinition(columns =>
+        {
+            columns.ConstantColumn(26);
+            columns.RelativeColumn(2f);
+            columns.RelativeColumn(1.6f);
+            columns.RelativeColumn(1.2f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(1.2f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(0.9f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(1.2f);
+            columns.RelativeColumn(0.8f);
+            columns.RelativeColumn(0.9f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(1f);
+        });
+    }
+
+    private static void ConfigureOpenPullRequestColumns(TableDescriptor table)
+    {
+        table.ColumnsDefinition(columns =>
+        {
+            columns.ConstantColumn(24);
+            columns.RelativeColumn(2f);
+            columns.RelativeColumn(1.6f);
+            columns.RelativeColumn(1.2f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(1.2f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(0.9f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(0.8f);
+            columns.RelativeColumn(0.9f);
+            columns.RelativeColumn(1f);
+            columns.RelativeColumn(1f);
+        });
+    }
+
+    private static void ComposePullRequestHeader(
+        TableDescriptor table,
+        string activityColumnName,
+        bool includeMergedOn)
+    {
+        table.Header(header =>
+        {
+            ComposeHeaderCell(header, "#");
+            ComposeHeaderCell(header, "Repository");
+            ComposeHeaderCell(header, "PR");
+            ComposeHeaderCell(header, AUTHOR_HEADER);
+            ComposeHeaderCell(header, "Description len");
+            ComposeHeaderCell(header, "Opened on");
+            ComposeHeaderCell(header, "Open for");
+            ComposeHeaderCell(header, "TTFR");
+            ComposeHeaderCell(header, activityColumnName);
+
+            if (includeMergedOn)
+            {
+                ComposeHeaderCell(header, "Merged on");
+            }
+
+            ComposeHeaderCell(header, COMMENTS_HEADER);
+            ComposeHeaderCell(header, "RC");
+            ComposeHeaderCell(header, "AP");
+            ComposeHeaderCell(header, "Me");
+        });
+    }
+
+    private static void ComposePullRequestReportRow(
+        TableDescriptor table,
+        PullRequestReportRow row,
+        int index,
+        string workspace,
+        bool includeMergedOn,
+        bool highlightMissingTtfr)
+    {
+        var repositoryUrl = PdfPresentationHelpers.BuildRepositoryBrowseUrl(workspace, row.RepositorySlug);
+        var pullRequestUrl = PdfPresentationHelpers.BuildPullRequestUrl(
+            workspace,
+            row.RepositorySlug,
+            row.PullRequestId);
+
+        ComposeTextCell(table, (index + 1).ToString(CultureInfo.InvariantCulture));
+        ComposeLinkCell(table, row.RepositoryName, repositoryUrl);
+        ComposePullRequestCell(
+            table.Cell().Element(PdfPresentationHelpers.StyleBodyCell),
+            pullRequestUrl,
+            row.PullRequestNumberText,
+            row.Title);
+
+        ComposeTextCell(table, string.Join('\n', row.AuthorDisplayNameLines));
+        ComposeConditionalTextCell(table, row.DescriptionLengthText, row.IsDescriptionShort, Colors.Red.Darken2);
+        ComposeTextCell(table, row.OpenedOnText);
+        ComposeTextCell(table, row.OpenDurationText);
+        ComposeConditionalTextCell(
+            table,
+            row.TimeToFirstResponseText,
+            highlightMissingTtfr && row.IsTtfrAlert,
+            Colors.Red.Darken2);
+        ComposeTextCell(table, row.ActivityAgeText);
+
+        if (includeMergedOn)
+        {
+            ComposeTextCell(table, row.MergedOnText ?? "-");
+        }
+
+        ComposeTextCell(table, row.CommentsCountText);
+        ComposeConditionalTextCell(table, row.RequestChangesText, row.RequestChangesCount > 0, Colors.Orange.Darken2);
+        ComposeConditionalTextCell(table, row.ApprovalsText, row.ApprovalsCount > 0, Colors.Green.Darken2);
+        ComposeMyActivityCell(table.Cell().Element(PdfPresentationHelpers.StyleBodyCell), row);
+    }
+
+    private static void ComposeHeaderCell(TableCellDescriptor header, string text) =>
+        header.Cell().Element(PdfPresentationHelpers.StyleHeaderCell).Text(text);
+
+    private static void ComposeTextCell(TableDescriptor table, string text) =>
+        table.Cell().Element(PdfPresentationHelpers.StyleBodyCell).Text(text);
+
+    private static void ComposeConditionalTextCell(
+        TableDescriptor table,
+        string text,
+        bool highlight,
+        string color)
+    {
+        var cell = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell);
+
+        if (highlight)
+        {
+            cell = cell.DefaultTextStyle(style => style.FontColor(color));
+        }
+
+        _ = cell.Text(text);
+    }
+
+    private static void ComposeLinkCell(TableDescriptor table, string text, string? url)
+    {
+        var cell = table.Cell().Element(PdfPresentationHelpers.StyleBodyCell);
+
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            cell = cell
+                .Hyperlink(url)
+                .DefaultTextStyle(static style => style.FontColor(Colors.Blue.Darken2).Underline());
+        }
+
+        _ = cell.Text(text);
     }
 
     private static void ComposeAbandonedRepositoriesSection(
@@ -546,4 +546,7 @@ public sealed class PdfContentComposer : IPdfContentComposer
             }
         });
     }
+
+    private const string AUTHOR_HEADER = "\U0001F9D1\u200D\U0001F4BB";
+    private const string COMMENTS_HEADER = "\U0001F4AC";
 }
