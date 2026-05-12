@@ -19,40 +19,28 @@ public sealed class ConsoleApp
     /// Initializes a new instance of the <see cref="ConsoleApp"/> class.
     /// </summary>
     /// <param name="bitbucketAuthApiClient">Bitbucket auth API client.</param>
-    /// <param name="htmlReportRenderer">HTML report renderer.</param>
-    /// <param name="pdfReportRenderer">PDF report renderer.</param>
-    /// <param name="reportDataFactory">Repository report data factory.</param>
     /// <param name="consoleReportRenderer">Console report renderer.</param>
-    /// <param name="repoService">Repository loading service.</param>
+    /// <param name="reportWorkflow">Repository report workflow.</param>
     /// <param name="telemetryService">Bitbucket API telemetry service.</param>
     /// <param name="options">Bitbucket configuration options.</param>
     /// <param name="timeProvider">Time provider for report timestamps.</param>
     public ConsoleApp(IBitbucketAuthApiClient bitbucketAuthApiClient,
-                      IHtmlReportRenderer htmlReportRenderer,
-                      IPdfReportRenderer pdfReportRenderer,
-                      IRepositoryReportDataFactory reportDataFactory,
                       IConsoleReportRenderer consoleReportRenderer,
-                      IRepoService repoService,
+                      IRepositoryReportWorkflow reportWorkflow,
                       IBitbucketTelemetryService telemetryService,
                       IOptions<BitbucketOptions> options,
                       TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(bitbucketAuthApiClient);
-        ArgumentNullException.ThrowIfNull(htmlReportRenderer);
-        ArgumentNullException.ThrowIfNull(pdfReportRenderer);
-        ArgumentNullException.ThrowIfNull(reportDataFactory);
         ArgumentNullException.ThrowIfNull(consoleReportRenderer);
-        ArgumentNullException.ThrowIfNull(repoService);
+        ArgumentNullException.ThrowIfNull(reportWorkflow);
         ArgumentNullException.ThrowIfNull(telemetryService);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _bitbucketAuthApiClient = bitbucketAuthApiClient;
-        _htmlReportRenderer = htmlReportRenderer;
-        _pdfReportRenderer = pdfReportRenderer;
-        _reportDataFactory = reportDataFactory;
         _consoleReportRenderer = consoleReportRenderer;
-        _repoService = repoService;
+        _reportWorkflow = reportWorkflow;
         _telemetryService = telemetryService;
         _options = options.Value;
         _timeProvider = timeProvider;
@@ -80,33 +68,19 @@ public sealed class ConsoleApp
             cancellationToken).ConfigureAwait(false);
         ShowFilterInfo(filterPattern);
 
-        var repositories = await LoadRepositoriesAsync(filterPattern, cancellationToken).ConfigureAwait(false);
-        var sortedRepositories = SortRepositoriesByName(repositories);
-        var pullRequestDetails = await LoadPullRequestDetailsAsync(
-            sortedRepositories,
-            authenticatedUser.Uuid,
-            cancellationToken).ConfigureAwait(false);
-        var mergedPullRequests = await LoadMergedPullRequestsAsync(
-            sortedRepositories,
-            reportOpenedAt,
-            authenticatedUser.Uuid,
-            cancellationToken).ConfigureAwait(false);
-
-        ShowResultsHeader(sortedRepositories.Count);
-        _consoleReportRenderer.RenderRepositoriesTable(sortedRepositories);
-        _consoleReportRenderer.RenderPullRequestSnapshotsTableIfAny(sortedRepositories);
-        _consoleReportRenderer.RenderMergedPullRequestsTableIfAny(mergedPullRequests);
-        _consoleReportRenderer.RenderPullRequestDetailsReportIfAny(pullRequestDetails);
-        _consoleReportRenderer.RenderAbandonedRepositoriesTableIfAny(sortedRepositories);
-
-        var reportData = _reportDataFactory.Create(
-            sortedRepositories,
-            mergedPullRequests,
-            pullRequestDetails,
+        var generationResult = await GenerateReportAsync(
             filterPattern,
-            _timeProvider.GetLocalNow());
+            authenticatedUser.Uuid,
+            reportOpenedAt,
+            cancellationToken).ConfigureAwait(false);
 
-        RenderReports(reportData);
+        ShowResultsHeader(generationResult.Repositories.Count);
+        _consoleReportRenderer.RenderRepositoriesTable(generationResult.Repositories);
+        _consoleReportRenderer.RenderPullRequestSnapshotsTableIfAny(generationResult.Repositories);
+        _consoleReportRenderer.RenderMergedPullRequestsTableIfAny(generationResult.MergedPullRequests);
+        _consoleReportRenderer.RenderPullRequestDetailsReportIfAny(generationResult.PullRequestDetails);
+        _consoleReportRenderer.RenderAbandonedRepositoriesTableIfAny(generationResult.Repositories);
+        _reportWorkflow.RenderReports(generationResult.ReportData);
         _consoleReportRenderer.RenderTelemetrySummary(_telemetryService.GetSnapshot());
         executionTime.Stop();
         ShowDone(executionTime.Elapsed);
@@ -184,15 +158,21 @@ public sealed class ConsoleApp
     private static string GetSearchModeText(RepositorySearchMode searchMode) =>
         searchMode == RepositorySearchMode.StartWith ? "starts with" : "contains";
 
-    private async Task<IReadOnlyList<Repository>> LoadRepositoriesAsync(FilterPattern filterPattern, CancellationToken cancellationToken)
+    private async Task<RepositoryReportGenerationResult> GenerateReportAsync(
+        FilterPattern filterPattern,
+        BitbucketId currentUserId,
+        DateTimeOffset reportOpenedAt,
+        CancellationToken cancellationToken)
     {
-        IReadOnlyList<Repository> repositories = [];
         RepoLoadProgress? lastProgress = null;
+        PullRequestRepositoryLoadProgress? lastPullRequestDetailsProgress = null;
+        PullRequestRepositoryLoadProgress? lastMergedPullRequestsProgress = null;
+        RepositoryReportGenerationResult? result = null;
 
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .SpinnerStyle(Style.Parse("green"))
-            .StartAsync("Loading repositories...", async ctx =>
+            .StartAsync("Loading report data...", async ctx =>
             {
                 var progress = new Progress<RepoLoadProgress>(p =>
                 {
@@ -202,94 +182,36 @@ public sealed class ConsoleApp
                             $"Loading PR statistics... {p.PullRequestStatisticsLoaded}/{p.PullRequestStatisticsTotal} (matched: {p.Matched})")
                         : ctx.Status($"Loading repositories... seen: {p.Seen}, matched: {p.Matched}");
                 });
-
-                repositories = await _repoService.GetRepositoriesAsync(filterPattern, progress, cancellationToken).ConfigureAwait(false);
-
-                _ = lastProgress is not null
-                    ? ctx.Status($"Loaded. seen: {lastProgress.Seen}, matched: {lastProgress.Matched}")
-                    : ctx.Status("Loaded.");
-            }).ConfigureAwait(false);
-
-        return repositories;
-    }
-
-    private static List<Repository> SortRepositoriesByName(IReadOnlyList<Repository> repositories) =>
-    [
-        .. repositories.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-    ];
-
-    private async Task<IReadOnlyList<PullRequestDetail>> LoadPullRequestDetailsAsync(
-        List<Repository> repositories,
-        BitbucketId currentUserId,
-        CancellationToken cancellationToken)
-    {
-        if (!_options.PullRequestDetails.IsEnabled || repositories.Count == 0)
-        {
-            return [];
-        }
-
-        IReadOnlyList<PullRequestDetail> pullRequestDetails = [];
-        PullRequestRepositoryLoadProgress? lastProgress = null;
-
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Star)
-            .SpinnerStyle(Style.Parse("green"))
-            .StartAsync("Loading Open PR details...", async ctx =>
-            {
-                var progress = new Progress<PullRequestRepositoryLoadProgress>(p =>
+                var pullRequestDetailsProgress = new Progress<PullRequestRepositoryLoadProgress>(p =>
                 {
-                    lastProgress = p;
+                    lastPullRequestDetailsProgress = p;
                     _ = ctx.Status($"Loading Open PR details... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
                 });
-
-                pullRequestDetails = await _repoService
-                    .GetOpenPullRequestDetailsAsync(repositories, currentUserId, progress, cancellationToken)
-                    .ConfigureAwait(false);
-
-                _ = lastProgress is not null
-                    ? ctx.Status($"Loaded Open PR details for {lastProgress.TotalRepositories} repositories.")
-                    : ctx.Status("Loaded Open PR details.");
-            }).ConfigureAwait(false);
-
-        return pullRequestDetails;
-    }
-
-    private async Task<IReadOnlyList<MergedPullRequest>> LoadMergedPullRequestsAsync(
-        List<Repository> repositories,
-        DateTimeOffset reportOpenedAt,
-        BitbucketId currentUserId,
-        CancellationToken cancellationToken)
-    {
-        if (!_options.MergedPullRequests.IsEnabled || repositories.Count == 0)
-        {
-            return [];
-        }
-
-        IReadOnlyList<MergedPullRequest> mergedPullRequests = [];
-        PullRequestRepositoryLoadProgress? lastProgress = null;
-        var mergedSince = reportOpenedAt.AddDays(-_options.MergedPullRequests.Days);
-
-        await AnsiConsole.Status()
-            .Spinner(Spinner.Known.Star)
-            .SpinnerStyle(Style.Parse("green"))
-            .StartAsync("Loading recently merged PRs...", async ctx =>
-            {
-                var progress = new Progress<PullRequestRepositoryLoadProgress>(p =>
+                var mergedPullRequestsProgress = new Progress<PullRequestRepositoryLoadProgress>(p =>
                 {
-                    lastProgress = p;
+                    lastMergedPullRequestsProgress = p;
                     _ = ctx.Status($"Loading recently merged PRs... {p.LoadedRepositories}/{p.TotalRepositories} repositories");
                 });
 
-                mergedPullRequests = await _repoService
-                    .GetMergedPullRequestsAsync(repositories, mergedSince, currentUserId, progress, cancellationToken)
+                result = await _reportWorkflow
+                    .GenerateAsync(
+                        filterPattern,
+                        currentUserId,
+                        reportOpenedAt,
+                        _timeProvider.GetLocalNow(),
+                        progress,
+                        pullRequestDetailsProgress,
+                        mergedPullRequestsProgress,
+                        cancellationToken)
                     .ConfigureAwait(false);
 
-                _ = lastProgress is not null
-                    ? ctx.Status($"Loaded recently merged PRs for {lastProgress.TotalRepositories} repositories.")
-                    : ctx.Status("Loaded recently merged PRs.");
+                _ = ctx.Status(BuildLoadedStatus(
+                    lastProgress,
+                    lastPullRequestDetailsProgress,
+                    lastMergedPullRequestsProgress));
             }).ConfigureAwait(false);
 
-        return mergedPullRequests;
+        return result!;
     }
 
     private void ShowResultsHeader(int resultCount)
@@ -298,19 +220,31 @@ public sealed class ConsoleApp
         AnsiConsole.MarkupLine($"[bold]Results:[/] [green]{resultCount}[/] (sorted by name)\n");
     }
 
-    private void RenderReports(RepositoryReportData reportData)
+    private static string BuildLoadedStatus(
+        RepoLoadProgress? repositoryProgress,
+        PullRequestRepositoryLoadProgress? pullRequestDetailsProgress,
+        PullRequestRepositoryLoadProgress? mergedPullRequestsProgress)
     {
-        ArgumentNullException.ThrowIfNull(reportData);
-        _htmlReportRenderer.RenderReport(reportData);
-        _pdfReportRenderer.RenderReport(reportData);
+        var status = repositoryProgress is not null
+            ? $"Loaded. seen: {repositoryProgress.Seen}, matched: {repositoryProgress.Matched}"
+            : "Loaded.";
+
+        if (pullRequestDetailsProgress is not null)
+        {
+            status += $" Open PR details: {pullRequestDetailsProgress.TotalRepositories} repositories.";
+        }
+
+        if (mergedPullRequestsProgress is not null)
+        {
+            status += $" Recently merged PRs: {mergedPullRequestsProgress.TotalRepositories} repositories.";
+        }
+
+        return status;
     }
 
     private readonly IBitbucketAuthApiClient _bitbucketAuthApiClient;
-    private readonly IHtmlReportRenderer _htmlReportRenderer;
-    private readonly IPdfReportRenderer _pdfReportRenderer;
-    private readonly IRepositoryReportDataFactory _reportDataFactory;
     private readonly IConsoleReportRenderer _consoleReportRenderer;
-    private readonly IRepoService _repoService;
+    private readonly IRepositoryReportWorkflow _reportWorkflow;
     private readonly IBitbucketTelemetryService _telemetryService;
     private readonly BitbucketOptions _options;
     private readonly TimeProvider _timeProvider;

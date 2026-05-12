@@ -73,6 +73,7 @@ internal static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddApplicationWorkflow(this IServiceCollection services)
     {
         _ = services.AddTransient<IRepoService, RepositoryService>();
+        _ = services.AddTransient<IRepositoryReportWorkflow, RepositoryReportWorkflow>();
         _ = services.AddTransient<ConsoleApp>();
 
         return services;
